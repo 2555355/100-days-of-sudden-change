@@ -109,10 +109,4 @@ public class GiantZombieEntity extends ZombieEntity {
     protected boolean burnsInDaylight() {
         return false; // 巨型僵尸不燃烧
     }
-
-    @Override
-    public boolean canSpawn() {
-        // 巨型僵尸可以在任何光照条件下生成
-        return true;
-    }
 }
