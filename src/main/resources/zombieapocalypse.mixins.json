@@ -4,8 +4,7 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "ZombieEntityMixin",
-    "MobSpawnMixin",
-    "HostileEntityMixin"
+    "MobSpawnMixin"
   ],
   "client": [],
   "injectors": {
