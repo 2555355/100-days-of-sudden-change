@@ -1,0 +1,8 @@
+{
+  "entity.zombieapocalypse.giant_zombie": "巨型僵尸",
+  "mod.zombieapocalypse.name": "惊变100天",
+  "mod.zombieapocalypse.stage": "第 %s 天",
+  "mod.zombieapocalypse.zombie_health": "僵尸血量: %.0f",
+  "mod.zombieapocalypse.giant_zombie_health": "巨型僵尸血量: %.0f",
+  "mod.zombieapocalypse.spawn_chance": "巨型僵尸生成概率: %.1f%%"
+}

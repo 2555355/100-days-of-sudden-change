@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "zombieapocalypse",
+  "version": "${version}",
+  "name": "惊变100天",
+  "description": "僵尸末日模组 - 只刷新僵尸，僵尸防白天燃烧，AI增强，可破坏方块，阶段增强，巨型僵尸",
+  "authors": [
+    "ZombieApocalypse"
+  ],
+  "contact": {
+    "homepage": "https://github.com/zombieapocalypse",
+    "sources": "https://github.com/zombieapocalypse"
+  },
+  "license": "MIT",
+  "icon": "assets/zombieapocalypse/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.zombieapocalypse.ZombieApocalypseMod"
+    ],
+    "client": [
+      "com.zombieapocalypse.client.ZombieApocalypseClient"
+    ]
+  },
+  "mixins": [
+    "zombieapocalypse.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "entity.zombieapocalypse.giant_zombie": "Giant Zombie",
+  "mod.zombieapocalypse.name": "100 Days Zombie Apocalypse",
+  "mod.zombieapocalypse.stage": "Day %s",
+  "mod.zombieapocalypse.zombie_health": "Zombie Health: %.0f",
+  "mod.zombieapocalypse.giant_zombie_health": "Giant Zombie Health: %.0f",
+  "mod.zombieapocalypse.spawn_chance": "Giant Zombie Spawn Chance: %.1f%%"
+}

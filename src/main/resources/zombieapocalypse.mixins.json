@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "com.zombieapocalypse.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "ZombieEntityMixin",
+    "MobSpawnMixin",
+    "HostileEntityMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
