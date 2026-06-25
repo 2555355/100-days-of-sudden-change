@@ -47,11 +47,8 @@ java {
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
-    withSourcesJar()
 }
 
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
-    }
+remapJar {
+    // 确保只输出一个 jar
 }
