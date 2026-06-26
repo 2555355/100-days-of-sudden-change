@@ -29,6 +29,7 @@ import java.util.List;
  * 4. 根据阶段动态更新属性
  * 5. 允许白天生成
  * 6. 方块收集系统 (拆方块→收集材料→搭方块)
+ * 7. 大幅降低小僵尸生成概率 (默认5% → 0.5%)
  */
 @Mixin(ZombieEntity.class)
 public abstract class ZombieEntityMixin extends HostileEntity implements IBlockCollector {
@@ -85,6 +86,23 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
     private void preventBurning(CallbackInfoReturnable<Boolean> cir) {
         if (ModConfig.ZOMBIE_SUN_BURN_IMMUNE) {
             cir.setReturnValue(false);
+        }
+    }
+
+    /**
+     * 降低小僵尸生成概率 (默认5% → 0.5%)
+     * 在initialize之后，如果生成了小僵尸，有90%概率转回成年
+     */
+    @Inject(method = "initialize", at = @At("TAIL"))
+    private void reduceBabyChance(net.minecraft.world.ServerWorldAccess world,
+                                  net.minecraft.world.LocalDifficulty difficulty,
+                                  net.minecraft.entity.SpawnReason spawnReason,
+                                  net.minecraft.entity.EntityData entityData,
+                                  net.minecraft.nbt.NbtCompound entityNbt,
+                                  CallbackInfoReturnable<net.minecraft.entity.EntityData> cir) {
+        ZombieEntity self = (ZombieEntity) (Object) this;
+        if (self.isBaby() && self.getRandom().nextFloat() < 0.9f) {
+            self.setBaby(false);
         }
     }
 
