@@ -24,7 +24,7 @@ public class ZombieApocalypseMod implements ModInitializer {
     public static final String MOD_ID = "zombieapocalypse";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    private static final int DAYTIME_SPAWN_INTERVAL = 100;
+    private static final int DAYTIME_SPAWN_INTERVAL = 40;
     private int tickCounter = 0;
 
     @Override
@@ -83,12 +83,11 @@ public class ZombieApocalypseMod implements ModInitializer {
     }
 
     /**
-     * 白天时额外生成僵尸
+     * 白天和夜晚额外生成僵尸（增强刷新量）
      */
     private void onWorldTick(ServerWorld world) {
         if (world.getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) return;
         if (!ModConfig.ZOMBIE_DAYTIME_SPAWN) return;
-        if (!world.isDay()) return;
 
         tickCounter++;
         if (tickCounter < DAYTIME_SPAWN_INTERVAL) return;
@@ -96,17 +95,26 @@ public class ZombieApocalypseMod implements ModInitializer {
 
         double stageProgress = StageSystem.getStageProgress(world);
         int stage = StageSystem.getCurrentStage(world);
+        boolean isDay = world.isDay();
 
         for (var player : world.getPlayers()) {
             if (player.isCreative() || player.isSpectator()) continue;
 
-            double spawnChance = 0.2 + (stageProgress * 0.5);
-            spawnChance *= ModConfig.ZOMBIE_DAYTIME_SPAWN_MULTIPLIER;
+            // 白天基础概率提高，夜晚额外补充
+            double spawnChance;
+            int spawnCount;
+            if (isDay) {
+                spawnChance = 0.4 + (stageProgress * 0.4);
+                spawnCount = 2 + (stage / 10);
+            } else {
+                // 夜晚也额外生成，弥补过滤其他怪物后的数量缺口
+                spawnChance = 0.6 + (stageProgress * 0.3);
+                spawnCount = 3 + (stage / 8);
+            }
 
             Random random = world.getRandom();
             if (random.nextDouble() > spawnChance) continue;
 
-            int spawnCount = 1 + (stage / 20);
             for (int i = 0; i < spawnCount; i++) {
                 trySpawnZombieNearPlayer(world, player, random);
             }
@@ -115,7 +123,7 @@ public class ZombieApocalypseMod implements ModInitializer {
 
     private void trySpawnZombieNearPlayer(ServerWorld world, PlayerEntity player, Random random) {
         double angle = random.nextDouble() * Math.PI * 2;
-        double distance = 24 + random.nextDouble() * 24;
+        double distance = 16 + random.nextDouble() * 28;
         int x = (int) (player.getX() + Math.cos(angle) * distance);
         int z = (int) (player.getZ() + Math.sin(angle) * distance);
 
