@@ -26,8 +26,6 @@ public class GiantZombieRenderer extends ZombieEntityRenderer {
 
     @Override
     protected void scale(ZombieEntity zombieEntity, MatrixStack matrixStack, float f) {
-        // 死亡时不缩放，避免放大死亡动画旋转导致抖动
-        if (zombieEntity.deathTime > 0) return;
         matrixStack.scale(this.scale, this.scale, this.scale);
     }
 

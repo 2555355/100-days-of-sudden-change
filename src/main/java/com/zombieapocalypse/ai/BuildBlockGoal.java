@@ -2,7 +2,6 @@ package com.zombieapocalypse.ai;
 
 import com.zombieapocalypse.config.ModConfig;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.goal.Goal;
 import net.minecraft.entity.mob.PathAwareEntity;
@@ -18,6 +17,8 @@ import java.util.EnumSet;
  * 策略：
  * 1. 玩家在头顶上方 → 往脚下搭方块爬高
  * 2. 前方有坑/空隙 → 搭方块搭桥
+ * 
+ * 材料来源：需要先破坏方块收集材料，不能凭空生成
  */
 public class BuildBlockGoal extends Goal {
     private final PathAwareEntity mob;
@@ -36,6 +37,11 @@ public class BuildBlockGoal extends Goal {
     public boolean canStart() {
         if (buildCooldown > 0) {
             buildCooldown--;
+            return false;
+        }
+
+        // 必须有收集到的方块材料才能搭
+        if (!(this.mob instanceof IBlockCollector collector) || !collector.hasCollectedBlock()) {
             return false;
         }
 
@@ -125,13 +131,16 @@ public class BuildBlockGoal extends Goal {
     @Override
     public void start() {
         this.buildCooldown = this.buildInterval;
-        if (this.targetPlacePos != null) {
+        if (this.targetPlacePos != null && this.mob instanceof IBlockCollector collector) {
             World world = this.mob.getWorld();
             BlockState state = world.getBlockState(this.targetPlacePos);
 
-            if (state.isAir() || state.isReplaceable()) {
-                // 放置圆石
-                world.setBlockState(this.targetPlacePos, Blocks.COBBLESTONE.getDefaultState());
+            if ((state.isAir() || state.isReplaceable()) && collector.hasCollectedBlock()) {
+                // 使用收集到的方块材料，而非凭空生成
+                BlockState blockToPlace = collector.consumeCollectedBlock();
+                if (blockToPlace != null) {
+                    world.setBlockState(this.targetPlacePos, blockToPlace);
+                }
             }
             this.targetPlacePos = null;
         }

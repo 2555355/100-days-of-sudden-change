@@ -86,7 +86,7 @@ public abstract class InventoryScreenMixin {
     }
 
     /**
-     * 渲染天数信息面板 (创造模式背包背景风格)
+     * 渲染天数信息面板 (美化版)
      */
     @Unique
     private void renderDayInfo(DrawContext context) {
@@ -98,45 +98,46 @@ public abstract class InventoryScreenMixin {
         int currentDay = StageSystem.getCurrentStage(world);
         double progress = StageSystem.getStageProgress(world);
         int centerX = this.x + 88;
-        int textY = this.y + 15;
         var renderer = client.textRenderer;
 
-        // 绘制创造模式风格的背景
-        // 背景上半部分
+        // 绘制创造模式背景
         context.drawTexture(CREATIVE_BG, this.x, this.y, 0, 0, 176, 83);
-        // 背景下半部分
         context.drawTexture(CREATIVE_BG, this.x, this.y + 83, 0, 83, 176, 83);
 
-        // 标题
+        // ===== 标题区域 =====
+        int titleY = this.y + 8;
+        // 标题背景条
+        int barX = this.x + 10;
+        int barW = 156;
+        context.fill(barX, titleY, barX + barW, titleY + 16, 0x44FF2222);
         context.drawCenteredTextWithShadow(renderer,
-                Text.literal("§6§l惊变100天"), centerX, textY, 0xFFFFFF);
-        textY += 22;
+                Text.literal("§c§l☠ 惊变100天 ☠"), centerX, titleY + 3, 0xFF6666);
 
-        // 当前天数
-        context.drawCenteredTextWithShadow(renderer,
-                Text.literal("§e当前: 第 " + currentDay + " / " + ModConfig.TOTAL_DAYS + " 天"),
-                centerX, textY, 0xFFFFFF);
-        textY += 16;
+        // ===== 天数卡片 =====
+        int cardY = titleY + 22;
+        int cardH = 36;
+        drawCard(context, barX, cardY, barW, cardH);
+        context.drawTextWithShadow(renderer,
+                Text.literal("§f第 " + currentDay + " / " + ModConfig.TOTAL_DAYS + " 天"),
+                barX + 10, cardY + 10, 0xFFEE44);
 
         // 进度条
-        int barWidth = 140;
-        int barX = centerX - barWidth / 2;
-        int barY = textY;
-        context.fill(barX, barY, barX + barWidth, barY + 12, 0xFF333333);
-        int filledWidth = (int) (barWidth * progress);
-        int barColor = progress < 0.3 ? 0xFF55FF55 : progress < 0.6 ? 0xFFFFFF55 :
-                progress < 0.8 ? 0xFFFFAA00 : 0xFFFF5555;
-        context.fill(barX, barY, barX + filledWidth, barY + 12, barColor);
+        int progY = cardY + 22;
+        int progH = 8;
+        context.fill(barX + 10, progY, barX + barW - 10, progY + progH, 0xFF222222);
+        int filledW = (int) ((barW - 20) * progress);
+        int barColor = progress < 0.3 ? 0xFF55CC55 : progress < 0.6 ? 0xFFCCCC44 :
+                progress < 0.8 ? 0xFFFF9944 : 0xFFFF4444;
+        context.fill(barX + 10, progY, barX + 10 + filledW, progY + progH, barColor);
         context.drawCenteredTextWithShadow(renderer,
-                Text.literal(String.format("%.1f%%", progress * 100)),
-                centerX, barY + 2, 0xFFFFFF);
-        textY += 20;
+                Text.literal(String.format("%.0f%%", progress * 100)),
+                centerX, progY - 1, 0xFFFFFF);
 
-        // 分隔线
-        context.fill(barX, textY, barX + barWidth, textY + 1, 0xFF555555);
-        textY += 10;
+        // ===== 僵尸属性卡片 =====
+        cardY = cardY + cardH + 6;
+        cardH = 56;
+        drawCard(context, barX, cardY, barW, cardH);
 
-        // 僵尸属性
         double zombieHealth = StageSystem.getZombieHealth(world);
         double zombieAttack = StageSystem.getZombieAttack(world);
         double giantHealth = StageSystem.getGiantZombieHealth(world);
@@ -144,40 +145,59 @@ public abstract class InventoryScreenMixin {
         double giantChance = StageSystem.getGiantZombieChance(world);
 
         context.drawTextWithShadow(renderer,
-                Text.literal("§c僵尸属性:"), this.x + 22, textY, 0xFFFFFF);
-        textY += 13;
+                Text.literal("§c§l僵尸属性"), barX + 10, cardY + 6, 0xFF4444);
+        int rowY = cardY + 20;
         context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§7血量: §c%.0f  §7攻击: §c%.1f",
-                        zombieHealth, zombieAttack)),
-                this.x + 22, textY, 0xAAAAAA);
-        textY += 12;
+                Text.literal(String.format("§7血量: §c%.0f    §7攻击: §c%.1f    §7护甲: §c%.0f",
+                        zombieHealth, zombieAttack, ModConfig.ZOMBIE_BASE_ARMOR +
+                                (ModConfig.ZOMBIE_MAX_ARMOR - ModConfig.ZOMBIE_BASE_ARMOR) * progress)),
+                barX + 10, rowY, 0xAAAAAA);
+        rowY += 13;
         context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§7巨型僵尸: §5%.0f血 §7攻击§5%.1f",
-                        giantHealth, giantAttack)),
-                this.x + 22, textY, 0xAAAAAA);
-        textY += 12;
+                Text.literal(String.format("§5巨型: §5%.0f血  §5%.1f攻  §d%.1f%%概率",
+                        giantHealth, giantAttack, giantChance * 100)),
+                barX + 10, rowY, 0xAAAAAA);
+        rowY += 13;
         context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§7巨型概率: §d%.1f%%", giantChance * 100)),
-                this.x + 22, textY, 0xAAAAAA);
-        textY += 18;
+                Text.literal(String.format("§e速度: §e%.2f",
+                        StageSystem.getZombieSpeed(world))),
+                barX + 10, rowY, 0xAAAAAA);
 
-        // 阶段提示
-        context.fill(barX, textY, barX + barWidth, textY + 1, 0xFF555555);
-        textY += 10;
+        // ===== 阶段提示卡片 =====
+        cardY = cardY + cardH + 6;
+        cardH = 28;
+        drawCard(context, barX, cardY, barW, cardH);
 
         String tip;
+        String tipColor;
         if (currentDay <= 10) {
-            tip = "§a初期阶段 - 僵尸较弱，尽快收集资源";
+            tip = "初期阶段 - 僵尸较弱，收集资源";
+            tipColor = "§a";
         } else if (currentDay <= 30) {
-            tip = "§e发展阶段 - 僵尸开始变强，建造防御";
+            tip = "发展阶段 - 僵尸变强，建造防御";
+            tipColor = "§e";
         } else if (currentDay <= 50) {
-            tip = "§6中期阶段 - 僵尸很强，注意防守";
+            tip = "中期阶段 - 僵尸很强，注意防守";
+            tipColor = "§6";
         } else if (currentDay <= 70) {
-            tip = "§c后期阶段 - 巨型僵尸频繁出现";
+            tip = "后期阶段 - 巨型僵尸频繁出现";
+            tipColor = "§c";
         } else {
-            tip = "§4最终阶段 - 生存下去！";
+            tip = "最终阶段 - 生存下去！";
+            tipColor = "§4";
         }
-        context.drawCenteredTextWithShadow(renderer, Text.literal(tip), centerX, textY, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(renderer,
+                Text.literal(tipColor + "§l" + tip), centerX, cardY + 9, 0xFFFFFF);
+    }
+
+    /**
+     * 绘制卡片背景
+     */
+    @Unique
+    private void drawCard(DrawContext context, int x, int y, int w, int h) {
+        context.fill(x, y, x + w, y + h, 0x88222222);
+        context.fill(x, y, x + w, y + 1, 0xFF555555);
+        context.fill(x, y + h - 1, x + w, y + h, 0xFF555555);
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)

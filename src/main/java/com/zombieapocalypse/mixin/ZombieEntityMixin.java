@@ -2,8 +2,10 @@ package com.zombieapocalypse.mixin;
 
 import com.zombieapocalypse.ai.BreakBlockGoal;
 import com.zombieapocalypse.ai.BuildBlockGoal;
+import com.zombieapocalypse.ai.IBlockCollector;
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.HostileEntity;
@@ -16,6 +18,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Mixin to ZombieEntity - 核心僵尸行为修改
  * 1. 防白天燃烧
@@ -23,12 +28,54 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 3. 添加搭方块AI (爬高/搭桥)
  * 4. 根据阶段动态更新属性
  * 5. 允许白天生成
+ * 6. 方块收集系统 (拆方块→收集材料→搭方块)
  */
 @Mixin(ZombieEntity.class)
-public abstract class ZombieEntityMixin extends HostileEntity {
+public abstract class ZombieEntityMixin extends HostileEntity implements IBlockCollector {
 
     protected ZombieEntityMixin(EntityType<? extends HostileEntity> entityType, World world) {
         super(entityType, world);
+    }
+
+    /**
+     * 方块收集系统：僵尸拆方块后收集材料，搭方块时消耗
+     * 最多存储3个方块，增强搭桥/爬高能力
+     */
+    @Unique
+    private static final int MAX_BLOCK_INVENTORY = 3;
+    @Unique
+    private final List<BlockState> blockInventory = new ArrayList<>(MAX_BLOCK_INVENTORY);
+
+    @Override
+    public BlockState peekCollectedBlock() {
+        return blockInventory.isEmpty() ? null : blockInventory.get(0);
+    }
+
+    @Override
+    public BlockState consumeCollectedBlock() {
+        return blockInventory.isEmpty() ? null : blockInventory.remove(0);
+    }
+
+    @Override
+    public void addCollectedBlock(BlockState state) {
+        if (blockInventory.size() < MAX_BLOCK_INVENTORY) {
+            blockInventory.add(state);
+        }
+    }
+
+    @Override
+    public boolean hasCollectedBlock() {
+        return !blockInventory.isEmpty();
+    }
+
+    @Override
+    public int getBlockInventorySize() {
+        return blockInventory.size();
+    }
+
+    @Override
+    public void clearBlockInventory() {
+        blockInventory.clear();
     }
 
     /**
