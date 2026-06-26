@@ -7,7 +7,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,8 +17,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * HandledScreen Mixin - 仅为生存背包界面添加分类标签
- * 使用创造模式风格的标签按钮和背景
+ * HandledScreen Mixin - 仅为生存背包界面添加自定义末日风格分类标签
+ * 自定义绘制按钮和面板，不再依赖创造模式纹理
  */
 @Mixin(HandledScreen.class)
 public abstract class InventoryScreenMixin {
@@ -30,15 +29,15 @@ public abstract class InventoryScreenMixin {
     protected int y;
 
     @Unique
-    private static final Identifier TAB_TEXTURE = new Identifier("textures/gui/container/creative_inventory/tabs.png");
+    private static final int TAB_WIDTH = 56;
     @Unique
-    private static final Identifier CREATIVE_BG = new Identifier("textures/gui/container/creative_inventory.png");
+    private static final int TAB_HEIGHT = 24;
     @Unique
-    private static final int TAB_WIDTH = 28;
-    @Unique
-    private static final int TAB_HEIGHT = 28;
+    private static final int TAB_GAP = 4;
     @Unique
     private int currentTab = 1; // 0=天数, 1=背包
+    @Unique
+    private int hoveredTab = -1; // 鼠标悬停的标签
 
     @Unique
     private boolean isInventoryScreen() {
@@ -48,21 +47,30 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "init", at = @At("TAIL"))
     private void adjustLayout(CallbackInfo ci) {
         if (!isInventoryScreen()) return;
-        this.y += TAB_HEIGHT;
+        this.y += TAB_HEIGHT + 4;
     }
 
     @Inject(method = "render", at = @At("TAIL"))
     private void renderTabs(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!isInventoryScreen()) return;
-        int tabY = this.y - TAB_HEIGHT;
+        int tabY = this.y - TAB_HEIGHT - 4;
 
-        // 绘制 "天数" 标签 (创造模式风格)
-        int tab0X = this.x + 8;
-        drawCreativeTab(context, tab0X, tabY, currentTab == 0, "天数");
+        // 检测悬停
+        hoveredTab = -1;
+        if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
+            int tab0X = this.x + 4;
+            if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) hoveredTab = 0;
+            int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
+            if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) hoveredTab = 1;
+        }
+
+        // 绘制 "天数" 标签
+        int tab0X = this.x + 4;
+        drawCustomTab(context, tab0X, tabY, TAB_WIDTH, TAB_HEIGHT, currentTab == 0, hoveredTab == 0, "☠", "天数");
 
         // 绘制 "背包" 标签
-        int tab1X = tab0X + TAB_WIDTH + 2;
-        drawCreativeTab(context, tab1X, tabY, currentTab == 1, "背包");
+        int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
+        drawCustomTab(context, tab1X, tabY, TAB_WIDTH, TAB_HEIGHT, currentTab == 1, hoveredTab == 1, "⛁", "背包");
 
         // 如果当前是"天数"标签，渲染天数信息面板
         if (currentTab == 0) {
@@ -71,22 +79,55 @@ public abstract class InventoryScreenMixin {
     }
 
     /**
-     * 绘制创造模式风格的标签按钮
+     * 绘制自定义末日风格标签按钮
      */
     @Unique
-    private void drawCreativeTab(DrawContext context, int tabX, int tabY, boolean selected, String label) {
-        // 绘制标签背景 (使用创造模式标签纹理)
-        int v = selected ? 32 : 0;
-        context.drawTexture(TAB_TEXTURE, tabX, tabY, 0, v, TAB_WIDTH, 32);
+    private void drawCustomTab(DrawContext context, int x, int y, int w, int h,
+                               boolean selected, boolean hovered, String icon, String label) {
+        // 背景色：选中=深红，悬停=暗红半透明，普通=暗灰
+        int bgColor;
+        int borderColor;
+        int textColor;
 
-        // 绘制标签文字
-        int textColor = selected ? 0xFFFFFF : 0xA0A0A0;
-        context.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer,
-                Text.literal(label), tabX + TAB_WIDTH / 2, tabY + 8, textColor);
+        if (selected) {
+            bgColor = 0xCC3A0000;
+            borderColor = 0xFFFF3333;
+            textColor = 0xFFFF4444;
+        } else if (hovered) {
+            bgColor = 0x88220000;
+            borderColor = 0xCC883333;
+            textColor = 0xCCCCCC;
+        } else {
+            bgColor = 0x88111111;
+            borderColor = 0x66333333;
+            textColor = 0x888888;
+        }
+
+        // 主体背景
+        context.fill(x, y, x + w, y + h, bgColor);
+
+        // 边框
+        context.fill(x, y, x + w, y + 1, borderColor);           // 顶部
+        context.fill(x, y + h - 1, x + w, y + h, borderColor);   // 底部
+        context.fill(x, y, x + 1, y + h, borderColor);           // 左侧
+        context.fill(x + w - 1, y, x + w, y + h, borderColor);   // 右侧
+
+        // 选中时底部红色高亮条
+        if (selected) {
+            context.fill(x + 2, y + h - 2, x + w - 2, y + h - 1, 0xFFFF3333);
+        }
+
+        // 图标 + 文字
+        var renderer = MinecraftClient.getInstance().textRenderer;
+        String displayText = icon + " " + label;
+        int textWidth = renderer.getWidth(displayText);
+        context.drawTextWithShadow(renderer,
+                Text.literal(displayText),
+                x + (w - textWidth) / 2, y + (h - 8) / 2, textColor);
     }
 
     /**
-     * 渲染天数信息面板 (美化版)
+     * 渲染天数信息面板 (末日风格)
      */
     @Unique
     private void renderDayInfo(DrawContext context) {
@@ -99,120 +140,155 @@ public abstract class InventoryScreenMixin {
         double progress = StageSystem.getStageProgress(world);
         int centerX = this.x + 88;
         var renderer = client.textRenderer;
+        int panelW = 176;
+        int panelH = 166;
 
-        // 绘制创造模式背景
-        context.drawTexture(CREATIVE_BG, this.x, this.y, 0, 0, 176, 83);
-        context.drawTexture(CREATIVE_BG, this.x, this.y + 83, 0, 83, 176, 83);
+        // ===== 面板背景 (末日风格：深色背景 + 红色边框) =====
+        // 主背景
+        context.fill(this.x, this.y, this.x + panelW, this.y + panelH, 0xDD111111);
+        // 红色边框
+        context.fill(this.x, this.y, this.x + panelW, this.y + 2, 0xCCFF2222);           // 顶部粗线
+        context.fill(this.x, this.y + panelH - 1, this.x + panelW, this.y + panelH, 0x88FF2222); // 底部
+        context.fill(this.x, this.y, this.x + 1, this.y + panelH, 0x88FF2222);            // 左侧
+        context.fill(this.x + panelW - 1, this.y, this.x + panelW, this.y + panelH, 0x88FF2222); // 右侧
+        // 四角加粗
+        context.fill(this.x, this.y, this.x + 4, this.y + 1, 0xFFFF3333);
+        context.fill(this.x + panelW - 4, this.y, this.x + panelW, this.y + 1, 0xFFFF3333);
 
         // ===== 标题区域 =====
-        int titleY = this.y + 8;
-        // 标题背景条
-        int barX = this.x + 10;
-        int barW = 156;
-        context.fill(barX, titleY, barX + barW, titleY + 16, 0x44FF2222);
+        int titleY = this.y + 10;
+        // 标题横幅
+        context.fill(this.x + 8, titleY - 2, this.x + panelW - 8, titleY + 16, 0x66330000);
+        context.fill(this.x + 8, titleY - 2, this.x + panelW - 8, titleY - 1, 0xCCFF3333);
+        context.fill(this.x + 8, titleY + 15, this.x + panelW - 8, titleY + 16, 0xCCFF3333);
         context.drawCenteredTextWithShadow(renderer,
-                Text.literal("§c§l☠ 惊变100天 ☠"), centerX, titleY + 3, 0xFF6666);
+                Text.literal("§c§l☠ 惊变 100 天 ☠"), centerX, titleY + 1, 0xFF6666);
 
         // ===== 天数卡片 =====
-        int cardY = titleY + 22;
-        int cardH = 36;
-        drawCard(context, barX, cardY, barW, cardH);
-        context.drawTextWithShadow(renderer,
-                Text.literal("§f第 " + currentDay + " / " + ModConfig.TOTAL_DAYS + " 天"),
-                barX + 10, cardY + 10, 0xFFEE44);
+        int cardY = titleY + 24;
+        int cardW = panelW - 16;
+        int cardX = this.x + 8;
 
-        // 进度条
-        int progY = cardY + 22;
-        int progH = 8;
-        context.fill(barX + 10, progY, barX + barW - 10, progY + progH, 0xFF222222);
-        int filledW = (int) ((barW - 20) * progress);
-        int barColor = progress < 0.3 ? 0xFF55CC55 : progress < 0.6 ? 0xFFCCCC44 :
-                progress < 0.8 ? 0xFFFF9944 : 0xFFFF4444;
-        context.fill(barX + 10, progY, barX + 10 + filledW, progY + progH, barColor);
+        // 卡片背景
+        drawPanelCard(context, cardX, cardY, cardW, 42);
+        // 天数文字
+        context.drawTextWithShadow(renderer,
+                Text.literal("§f当前天数: §e§l" + currentDay + " §7/ " + ModConfig.TOTAL_DAYS),
+                cardX + 10, cardY + 8, 0xFFFFFF);
+        // 进度条背景
+        int progY = cardY + 24;
+        int progH = 10;
+        context.fill(cardX + 10, progY, cardX + cardW - 10, progY + progH, 0xFF000000);
+        // 进度条填充
+        int filledW = (int) ((cardW - 20) * progress);
+        int barColor = progress < 0.3 ? 0xFF44AA44 : progress < 0.6 ? 0xFFCCAA44 :
+                progress < 0.8 ? 0xFFFF8844 : 0xFFFF3333;
+        context.fill(cardX + 10, progY + 1, cardX + 10 + filledW, progY + progH - 1, barColor);
+        // 进度百分比
         context.drawCenteredTextWithShadow(renderer,
-                Text.literal(String.format("%.0f%%", progress * 100)),
-                centerX, progY - 1, 0xFFFFFF);
+                Text.literal(String.format("§f%.1f%%", progress * 100)),
+                centerX, progY + 1, 0xFFFFFF);
 
         // ===== 僵尸属性卡片 =====
-        cardY = cardY + cardH + 6;
-        cardH = 56;
-        drawCard(context, barX, cardY, barW, cardH);
+        cardY += 50;
+        drawPanelCard(context, cardX, cardY, cardW, 64);
 
         double zombieHealth = StageSystem.getZombieHealth(world);
         double zombieAttack = StageSystem.getZombieAttack(world);
+        double zombieArmor = ModConfig.ZOMBIE_BASE_ARMOR +
+                (ModConfig.ZOMBIE_MAX_ARMOR - ModConfig.ZOMBIE_BASE_ARMOR) * progress;
+        double zombieSpeed = StageSystem.getZombieSpeed(world);
         double giantHealth = StageSystem.getGiantZombieHealth(world);
         double giantAttack = StageSystem.getGiantZombieAttack(world);
         double giantChance = StageSystem.getGiantZombieChance(world);
 
         context.drawTextWithShadow(renderer,
-                Text.literal("§c§l僵尸属性"), barX + 10, cardY + 6, 0xFF4444);
-        int rowY = cardY + 20;
-        context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§7血量: §c%.0f    §7攻击: §c%.1f    §7护甲: §c%.0f",
-                        zombieHealth, zombieAttack, ModConfig.ZOMBIE_BASE_ARMOR +
-                                (ModConfig.ZOMBIE_MAX_ARMOR - ModConfig.ZOMBIE_BASE_ARMOR) * progress)),
-                barX + 10, rowY, 0xAAAAAA);
-        rowY += 13;
-        context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§5巨型: §5%.0f血  §5%.1f攻  §d%.1f%%概率",
-                        giantHealth, giantAttack, giantChance * 100)),
-                barX + 10, rowY, 0xAAAAAA);
-        rowY += 13;
-        context.drawTextWithShadow(renderer,
-                Text.literal(String.format("§e速度: §e%.2f",
-                        StageSystem.getZombieSpeed(world))),
-                barX + 10, rowY, 0xAAAAAA);
+                Text.literal("§c§l⚔ 僵尸属性"), cardX + 10, cardY + 6, 0xFF4444);
 
-        // ===== 阶段提示卡片 =====
-        cardY = cardY + cardH + 6;
-        cardH = 28;
-        drawCard(context, barX, cardY, barW, cardH);
+        int rowY = cardY + 22;
+        // 属性行 - 使用分隔线
+        drawAttributeRow(context, renderer, cardX + 10, rowY, cardW - 20,
+                "§7血量", String.format("§c%.0f", zombieHealth),
+                "§7攻击", String.format("§c%.1f", zombieAttack));
+        rowY += 14;
+        drawAttributeRow(context, renderer, cardX + 10, rowY, cardW - 20,
+                "§7护甲", String.format("§c%.0f", zombieArmor),
+                "§7速度", String.format("§e%.2f", zombieSpeed));
+        rowY += 14;
+        drawAttributeRow(context, renderer, cardX + 10, rowY, cardW - 20,
+                "§5巨型血量", String.format("§5%.0f", giantHealth),
+                "§5巨型攻击", String.format("§5%.1f", giantAttack));
+        rowY += 14;
+        context.drawTextWithShadow(renderer,
+                Text.literal(String.format("§d巨型生成概率: §d%.1f%%", giantChance * 100)),
+                cardX + 10, rowY, 0xAAAAAA);
+
+        // ===== 阶段提示 =====
+        cardY += 72;
+        drawPanelCard(context, cardX, cardY, cardW, 24);
 
         String tip;
         String tipColor;
         if (currentDay <= 10) {
-            tip = "初期阶段 - 僵尸较弱，收集资源";
+            tip = "§a初期阶段 §7- 僵尸较弱，抓紧收集资源";
             tipColor = "§a";
         } else if (currentDay <= 30) {
-            tip = "发展阶段 - 僵尸变强，建造防御";
+            tip = "§e发展阶段 §7- 僵尸变强，建造防御工事";
             tipColor = "§e";
         } else if (currentDay <= 50) {
-            tip = "中期阶段 - 僵尸很强，注意防守";
+            tip = "§6中期阶段 §7- 僵尸很强，注意防守";
             tipColor = "§6";
         } else if (currentDay <= 70) {
-            tip = "后期阶段 - 巨型僵尸频繁出现";
+            tip = "§c后期阶段 §7- 巨型僵尸频繁出现！";
             tipColor = "§c";
         } else {
-            tip = "最终阶段 - 生存下去！";
+            tip = "§4最终阶段 §7- 拼尽全力生存下去！";
             tipColor = "§4";
         }
         context.drawCenteredTextWithShadow(renderer,
-                Text.literal(tipColor + "§l" + tip), centerX, cardY + 9, 0xFFFFFF);
+                Text.literal(tip), centerX, cardY + 8, 0xFFFFFF);
     }
 
     /**
-     * 绘制卡片背景
+     * 绘制属性行（两列）
      */
     @Unique
-    private void drawCard(DrawContext context, int x, int y, int w, int h) {
-        context.fill(x, y, x + w, y + h, 0x88222222);
-        context.fill(x, y, x + w, y + 1, 0xFF555555);
-        context.fill(x, y + h - 1, x + w, y + h, 0xFF555555);
+    private void drawAttributeRow(DrawContext context, net.minecraft.client.font.TextRenderer renderer,
+                                  int x, int y, int width,
+                                  String label1, String value1, String label2, String value2) {
+        int midX = x + width / 2;
+        context.drawTextWithShadow(renderer,
+                Text.literal(label1 + ": " + value1), x, y, 0xAAAAAA);
+        context.drawTextWithShadow(renderer,
+                Text.literal(label2 + ": " + value2), midX, y, 0xAAAAAA);
+    }
+
+    /**
+     * 绘制面板卡片背景
+     */
+    @Unique
+    private void drawPanelCard(DrawContext context, int x, int y, int w, int h) {
+        // 深色半透明背景
+        context.fill(x, y, x + w, y + h, 0x66222222);
+        // 顶部边框线
+        context.fill(x, y, x + w, y + 1, 0x88444444);
+        // 底部边框线
+        context.fill(x, y + h - 1, x + w, y + h, 0x88333333);
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void handleTabClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         if (!isInventoryScreen()) return;
-        int tabY = this.y - TAB_HEIGHT;
+        int tabY = this.y - TAB_HEIGHT - 4;
 
-        if (mouseY >= tabY && mouseY <= tabY + 32) {
-            int tab0X = this.x + 8;
+        if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
+            int tab0X = this.x + 4;
             if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) {
                 currentTab = 0;
                 cir.setReturnValue(true);
                 return;
             }
-            int tab1X = tab0X + TAB_WIDTH + 2;
+            int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
             if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) {
                 currentTab = 1;
                 cir.setReturnValue(true);
@@ -220,6 +296,7 @@ public abstract class InventoryScreenMixin {
             }
         }
 
+        // 在"天数"面板内点击时拦截事件
         if (currentTab == 0) {
             if (mouseX >= this.x && mouseX <= this.x + 176 &&
                     mouseY >= this.y && mouseY <= this.y + 166) {
