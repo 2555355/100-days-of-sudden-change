@@ -71,7 +71,7 @@ public class ZombieApocalypseMod implements ModInitializer {
                     world.spawnEntity(giant);
                 } else {
                     // 普通僵尸也应用阶段属性，确保满血生成
-                    applyStageAttributes(entity, world, false);
+                    applyStageAttributes((LivingEntity) entity, world, false);
                 }
             }
         });
