@@ -85,12 +85,71 @@ public class StageSystem {
 
     /**
      * 根据阶段计算巨型僵尸生成概率
-     * 第1天: 1%, 第100天: 15%
+     * 第1天: 2%, 第100天: 30%
      */
     public static double getGiantZombieChance(World world) {
         double progress = getStageProgress(world);
         return ModConfig.GIANT_ZOMBIE_BASE_CHANCE +
                 (ModConfig.GIANT_ZOMBIE_MAX_CHANCE - ModConfig.GIANT_ZOMBIE_BASE_CHANCE) * progress;
+    }
+
+    /**
+     * 获取当前天数 (从0开始)
+     */
+    public static int getCurrentDay(World world) {
+        return (int) (world.getTimeOfDay() / 24000L);
+    }
+
+    /**
+     * 是否为血月 (每10天一次)
+     */
+    public static boolean isBloodMoon(World world) {
+        int day = getCurrentDay(world);
+        return day > 0 && day % ModConfig.BLOOD_MOON_INTERVAL == 0;
+    }
+
+    /**
+     * 获取僵尸智能度等级 (0-5)
+     * 基于当前天数阶梯: Lv0=1-10, Lv1=11-20, Lv2=21-30, Lv3=31-50, Lv4=51-70, Lv5=71-100
+     */
+    public static int getIntelligenceLevel(World world) {
+        int day = getCurrentDay(world);
+        int level = 0;
+        for (int i = ModConfig.INTELLIGENCE_DAY_THRESHOLDS.length - 1; i >= 0; i--) {
+            if (day >= ModConfig.INTELLIGENCE_DAY_THRESHOLDS[i]) {
+                level = i;
+                break;
+            }
+        }
+        return level;
+    }
+
+    /**
+     * 获取当前智能度下的拆方块间隔
+     */
+    public static int getBreakInterval(World world) {
+        return ModConfig.INTELLIGENCE_BREAK_INTERVALS[getIntelligenceLevel(world)];
+    }
+
+    /**
+     * 获取当前智能度下的搭方块间隔
+     */
+    public static int getBuildInterval(World world) {
+        return ModConfig.INTELLIGENCE_BUILD_INTERVALS[getIntelligenceLevel(world)];
+    }
+
+    /**
+     * 获取当前智能度下的方块硬度上限
+     */
+    public static float getHardnessLimit(World world) {
+        return ModConfig.INTELLIGENCE_HARDNESS_LIMITS[getIntelligenceLevel(world)];
+    }
+
+    /**
+     * 获取当前智能度下的方块库存容量
+     */
+    public static int getBlockInventorySize(World world) {
+        return ModConfig.INTELLIGENCE_BLOCK_INVENTORY[getIntelligenceLevel(world)];
     }
 
     /**

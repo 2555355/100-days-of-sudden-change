@@ -59,10 +59,10 @@ public class ModConfig {
     public static double GIANT_ZOMBIE_MAX_ATTACK = 25.0;
 
     /** 巨型僵尸基础生成概率 (第1天) */
-    public static double GIANT_ZOMBIE_BASE_CHANCE = 0.01;
+    public static double GIANT_ZOMBIE_BASE_CHANCE = 0.02;
 
     /** 巨型僵尸最高生成概率 (第100天) */
-    public static double GIANT_ZOMBIE_MAX_CHANCE = 0.15;
+    public static double GIANT_ZOMBIE_MAX_CHANCE = 0.30;
 
     /** 巨型僵尸大小倍率 */
     public static float GIANT_ZOMBIE_SCALE = 2.0f;
@@ -86,6 +86,24 @@ public class ModConfig {
 
     /** 僵尸增强AI寻路范围 */
     public static int ZOMBIE_ENHANCED_FOLLOW_RANGE = 64;
+
+    // ========== 血月系统 ==========
+    /** 血月间隔天数 */
+    public static int BLOOD_MOON_INTERVAL = 10;
+    /** 血月期间刷新倍率 */
+    public static double BLOOD_MOON_SPAWN_MULTIPLIER = 2.0;
+
+    // ========== 僵尸智能度阶梯 ==========
+    /** 各智力等级起始天数 [1, 11, 21, 31, 51, 71] */
+    public static int[] INTELLIGENCE_DAY_THRESHOLDS = {1, 11, 21, 31, 51, 71};
+    /** 各智力等级拆方块间隔 (tick) */
+    public static int[] INTELLIGENCE_BREAK_INTERVALS = {30, 20, 14, 9, 5, 3};
+    /** 各智力等级搭方块间隔 (tick) */
+    public static int[] INTELLIGENCE_BUILD_INTERVALS = {40, 28, 18, 11, 6, 4};
+    /** 各智力等级可破坏方块硬度上限 */
+    public static float[] INTELLIGENCE_HARDNESS_LIMITS = {10, 15, 25, 35, 50, 100};
+    /** 各智力等级方块库存容量 */
+    public static int[] INTELLIGENCE_BLOCK_INVENTORY = {2, 3, 4, 5, 6, 8};
 
     // ========== 难度加成 ==========
     /** 简单难度属性倍率 */

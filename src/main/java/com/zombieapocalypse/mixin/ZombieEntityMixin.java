@@ -40,12 +40,10 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
 
     /**
      * 方块收集系统：僵尸拆方块后收集材料，搭方块时消耗
-     * 最多存储3个方块，增强搭桥/爬高能力
+     * 库存容量随智能度阶梯增长: Lv0=2, Lv5=8
      */
     @Unique
-    private static final int MAX_BLOCK_INVENTORY = 3;
-    @Unique
-    private final List<BlockState> blockInventory = new ArrayList<>(MAX_BLOCK_INVENTORY);
+    private final List<BlockState> blockInventory = new ArrayList<>();
 
     @Override
     public BlockState peekCollectedBlock() {
@@ -59,7 +57,8 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
 
     @Override
     public void addCollectedBlock(BlockState state) {
-        if (blockInventory.size() < MAX_BLOCK_INVENTORY) {
+        int maxSize = StageSystem.getBlockInventorySize(this.getWorld());
+        if (blockInventory.size() < maxSize) {
             blockInventory.add(state);
         }
     }
@@ -108,14 +107,13 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
 
     /**
      * 注入AI目标 - 添加破坏方块AI和搭方块AI
+     * 间隔由智能度系统动态控制
      */
     @Inject(method = "initGoals", at = @At("HEAD"))
     private void addCustomGoals(CallbackInfo ci) {
         ZombieEntity self = (ZombieEntity) (Object) this;
-        // 最高优先级：破坏方块AI (突破障碍)
-        this.goalSelector.add(0, new BreakBlockGoal(self, ModConfig.ZOMBIE_BREAK_BLOCK_INTERVAL));
-        // 次高优先级：搭方块AI (爬高/搭桥)
-        this.goalSelector.add(1, new BuildBlockGoal(self, ModConfig.ZOMBIE_BUILD_BLOCK_INTERVAL));
+        this.goalSelector.add(0, new BreakBlockGoal(self));
+        this.goalSelector.add(1, new BuildBlockGoal(self));
     }
 
     /**

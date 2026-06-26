@@ -14,6 +14,7 @@ import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
@@ -84,6 +85,7 @@ public class ZombieApocalypseMod implements ModInitializer {
 
     /**
      * 白天和夜晚额外生成僵尸（增强刷新量）
+     * 血月期间所有刷新倍率翻倍
      */
     private void onWorldTick(ServerWorld world) {
         if (world.getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) return;
@@ -96,20 +98,31 @@ public class ZombieApocalypseMod implements ModInitializer {
         double stageProgress = StageSystem.getStageProgress(world);
         int stage = StageSystem.getCurrentStage(world);
         boolean isDay = world.isDay();
+        boolean isBloodMoon = StageSystem.isBloodMoon(world);
+
+        // 血月开始时发送提示
+        if (isBloodMoon && world.getTimeOfDay() % 24000L < 20) {
+            for (var player : world.getPlayers()) {
+                player.sendMessage(Text.literal(""), false);
+                player.sendMessage(Text.literal("§c§l⚠ §4§l血月降临！§c§l ⚠"), false);
+                player.sendMessage(Text.literal("§c所有怪物刷新概率和数量翻倍！"), false);
+                player.sendMessage(Text.literal(""), false);
+            }
+        }
+
+        double bloodMoonMult = isBloodMoon ? ModConfig.BLOOD_MOON_SPAWN_MULTIPLIER : 1.0;
 
         for (var player : world.getPlayers()) {
             if (player.isCreative() || player.isSpectator()) continue;
 
-            // 白天基础概率提高，夜晚额外补充
             double spawnChance;
             int spawnCount;
             if (isDay) {
-                spawnChance = 0.4 + (stageProgress * 0.4);
-                spawnCount = 2 + (stage / 10);
+                spawnChance = (0.4 + stageProgress * 0.4) * bloodMoonMult;
+                spawnCount = (int) ((2 + stage / 10) * bloodMoonMult);
             } else {
-                // 夜晚也额外生成，弥补过滤其他怪物后的数量缺口
-                spawnChance = 0.6 + (stageProgress * 0.3);
-                spawnCount = 3 + (stage / 8);
+                spawnChance = (0.6 + stageProgress * 0.3) * bloodMoonMult;
+                spawnCount = (int) ((3 + stage / 8) * bloodMoonMult);
             }
 
             Random random = world.getRandom();

@@ -1,6 +1,6 @@
 package com.zombieapocalypse.ai;
 
-import com.zombieapocalypse.config.ModConfig;
+import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.goal.Goal;
@@ -12,23 +12,16 @@ import net.minecraft.world.World;
 import java.util.EnumSet;
 
 /**
- * 僵尸搭方块AI (增强版)
- * 策略：
- * 1. 玩家在头顶上方 → 往脚下搭方块爬高（支持楼梯式搭建）
- * 2. 前方有坑/空隙 → 搭方块搭桥
- * 3. 玩家在侧面高处 → 搭楼梯接近
- *
- * 材料来源：需要先破坏方块收集材料，不能凭空生成
+ * 僵尸搭方块AI (智能增强版)
+ * 搭方块间隔随智能度阶梯递减
  */
 public class BuildBlockGoal extends Goal {
     private final PathAwareEntity mob;
-    private final int buildInterval;
     private int buildCooldown;
     private BlockPos targetPlacePos;
 
-    public BuildBlockGoal(PathAwareEntity mob, int buildInterval) {
+    public BuildBlockGoal(PathAwareEntity mob) {
         this.mob = mob;
-        this.buildInterval = buildInterval;
         this.buildCooldown = 0;
         this.setControls(EnumSet.of(Goal.Control.MOVE, Goal.Control.LOOK));
     }
@@ -182,7 +175,7 @@ public class BuildBlockGoal extends Goal {
 
     @Override
     public void start() {
-        this.buildCooldown = this.buildInterval;
+        this.buildCooldown = StageSystem.getBuildInterval(this.mob.getWorld());
         if (this.targetPlacePos != null && this.mob instanceof IBlockCollector collector) {
             World world = this.mob.getWorld();
             BlockState state = world.getBlockState(this.targetPlacePos);
