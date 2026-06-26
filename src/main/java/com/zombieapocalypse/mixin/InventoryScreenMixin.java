@@ -4,7 +4,6 @@ import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.text.Text;
@@ -22,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 当"天数"标签激活时，完全替换物品栏显示
  */
 @Mixin(HandledScreen.class)
-public abstract class InventoryScreenMixin extends Screen {
+public abstract class InventoryScreenMixin {
 
     @Shadow
     protected int x;
@@ -39,10 +38,6 @@ public abstract class InventoryScreenMixin extends Screen {
     private int currentTab = 1; // 0=天数, 1=背包
     @Unique
     private int hoveredTab = -1;
-
-    protected InventoryScreenMixin(Text title) {
-        super(title);
-    }
 
     @Unique
     private boolean isInventoryScreen() {
@@ -62,8 +57,9 @@ public abstract class InventoryScreenMixin extends Screen {
     private void onRenderHead(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!isInventoryScreen()) return;
         if (currentTab == 0) {
-            // 绘制暗色背景
-            this.renderBackground(context, mouseX, mouseY, delta);
+            // 绘制暗色背景（手动绘制，兼容1.20.1的renderBackground签名）
+            MinecraftClient client = MinecraftClient.getInstance();
+            context.fill(0, 0, client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight(), 0xC0101010);
             // 绘制天数面板
             renderDayPanel(context, mouseX, mouseY);
             // 取消物品栏渲染
