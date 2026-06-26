@@ -2,13 +2,16 @@ package com.zombieapocalypse;
 
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
+import com.zombieapocalypse.entity.GiantZombieEntity;
 import com.zombieapocalypse.entity.ModEntities;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.SpawnRestriction;
+import net.minecraft.entity.*;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
@@ -20,7 +23,7 @@ public class ZombieApocalypseMod implements ModInitializer {
     public static final String MOD_ID = "zombieapocalypse";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    private static final int DAYTIME_SPAWN_INTERVAL = 100; // 每5秒尝试一次白天生成
+    private static final int DAYTIME_SPAWN_INTERVAL = 100;
     private int tickCounter = 0;
 
     @Override
@@ -39,99 +42,147 @@ public class ZombieApocalypseMod implements ModInitializer {
                 (type, world, spawnReason, pos, random) -> true
         );
 
-        // 白天僵尸生成 - 周期性在世界中生成僵尸
+        // 拦截实体加载：过滤非僵尸敌对生物，替换僵尸为巨型僵尸
+        ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+            // 过滤：移除非僵尸敌对生物
+            if (entity instanceof Monster && !(entity instanceof ZombieEntity)) {
+                // 以极低概率(2%)允许其他敌对生物存活
+                if (world.getRandom().nextDouble() > ModConfig.OTHER_HOSTILE_SPAWN_CHANCE) {
+                    entity.discard();
+                    return;
+                }
+            }
+
+            // 僵尸替换为巨型僵尸
+            if (entity instanceof ZombieEntity && !(entity instanceof GiantZombieEntity)) {
+                double giantChance = StageSystem.getGiantZombieChance(world);
+                if (world.getRandom().nextDouble() < giantChance) {
+                    BlockPos pos = entity.getBlockPos();
+                    entity.discard();
+
+                    GiantZombieEntity giant = new GiantZombieEntity(ModEntities.GIANT_ZOMBIE, world);
+                    giant.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                            world.getRandom().nextFloat() * 360.0f, 0.0f);
+                    giant.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
+                    applyStageAttributes(giant, world, true);
+                    world.spawnEntity(giant);
+                }
+            }
+        });
+
+        // 白天僵尸生成
         ServerTickEvents.END_WORLD_TICK.register(this::onWorldTick);
 
         LOGGER.info("=== 惊变100天 模组加载完成 ===");
     }
 
     /**
-     * 每个世界 tick 时调用
-     * 白天时额外生成僵尸，确保玩家始终面临威胁
+     * 白天时额外生成僵尸
      */
     private void onWorldTick(ServerWorld world) {
         if (world.getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) return;
         if (!ModConfig.ZOMBIE_DAYTIME_SPAWN) return;
-
-        // 检查是否为白天
         if (!world.isDay()) return;
 
         tickCounter++;
         if (tickCounter < DAYTIME_SPAWN_INTERVAL) return;
         tickCounter = 0;
 
-        // 获取当前阶段
-        int stage = StageSystem.getCurrentStage(world);
         double stageProgress = StageSystem.getStageProgress(world);
+        int stage = StageSystem.getCurrentStage(world);
 
-        // 每个玩家尝试生成僵尸
-        var players = world.getPlayers();
-        for (var player : players) {
+        for (var player : world.getPlayers()) {
             if (player.isCreative() || player.isSpectator()) continue;
 
-            // 阶段越高，生成概率越大 (基础20% → 最高70%)
             double spawnChance = 0.2 + (stageProgress * 0.5);
-            // 白天生成倍率
             spawnChance *= ModConfig.ZOMBIE_DAYTIME_SPAWN_MULTIPLIER;
 
             Random random = world.getRandom();
             if (random.nextDouble() > spawnChance) continue;
 
-            // 在玩家周围随机位置生成僵尸
-            int spawnCount = 1 + (stage / 20); // 阶段越高，一次生成越多
+            int spawnCount = 1 + (stage / 20);
             for (int i = 0; i < spawnCount; i++) {
                 trySpawnZombieNearPlayer(world, player, random);
             }
         }
     }
 
-    /**
-     * 在玩家附近尝试生成一个僵尸
-     */
-    private void trySpawnZombieNearPlayer(ServerWorld world, net.minecraft.entity.player.PlayerEntity player, Random random) {
-        // 在玩家周围 24-48 格范围内随机位置
+    private void trySpawnZombieNearPlayer(ServerWorld world, PlayerEntity player, Random random) {
         double angle = random.nextDouble() * Math.PI * 2;
         double distance = 24 + random.nextDouble() * 24;
         int x = (int) (player.getX() + Math.cos(angle) * distance);
         int z = (int) (player.getZ() + Math.sin(angle) * distance);
 
-        // 找到合适的 Y 坐标
         BlockPos pos = new BlockPos(x, world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z), z);
-
-        // 确保位置有效
         if (pos.getY() < world.getBottomY() || pos.getY() > world.getTopY()) return;
 
-        // 检查位置是否适合生成
-        BlockPos spawnPos = pos.down();
-        if (!world.getBlockState(spawnPos).isSolidBlock(world, spawnPos)) return;
+        BlockPos groundPos = pos.down();
+        if (!world.getBlockState(groundPos).isSolidBlock(world, groundPos)) return;
         if (!world.getBlockState(pos).isAir() || !world.getBlockState(pos.up()).isAir()) return;
 
-        // 创建僵尸
-        ZombieEntity zombie = new ZombieEntity(EntityType.ZOMBIE, world);
-        zombie.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
-                random.nextFloat() * 360.0f, 0.0f);
+        spawnZombieAt(world, pos, random);
+    }
 
-        // 初始化
-        zombie.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
+    /**
+     * 在指定位置生成僵尸（根据阶段概率生成巨型僵尸）
+     */
+    private void spawnZombieAt(ServerWorld world, BlockPos pos, Random random) {
+        double giantChance = StageSystem.getGiantZombieChance(world);
 
-        // 设置属性为当前阶段值
-        double health = StageSystem.getZombieHealth(world);
-        double attack = StageSystem.getZombieAttack(world);
+        if (random.nextDouble() < giantChance) {
+            // 生成巨型僵尸
+            GiantZombieEntity giant = new GiantZombieEntity(ModEntities.GIANT_ZOMBIE, world);
+            giant.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                    random.nextFloat() * 360.0f, 0.0f);
+            giant.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
+
+            applyStageAttributes(giant, world, true);
+            world.spawnEntity(giant);
+        } else {
+            // 生成普通僵尸
+            ZombieEntity zombie = new ZombieEntity(EntityType.ZOMBIE, world);
+            zombie.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                    random.nextFloat() * 360.0f, 0.0f);
+            zombie.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
+
+            applyStageAttributes(zombie, world, false);
+            world.spawnEntity(zombie);
+        }
+    }
+
+    /**
+     * 应用阶段属性到僵尸
+     */
+    public static void applyStageAttributes(LivingEntity entity, ServerWorld world, boolean isGiant) {
+        double health, attack, speed;
+        if (isGiant) {
+            health = StageSystem.getGiantZombieHealth(world);
+            attack = StageSystem.getGiantZombieAttack(world);
+            speed = 0.20 + (StageSystem.getStageProgress(world) * 0.10);
+        } else {
+            health = StageSystem.getZombieHealth(world);
+            attack = StageSystem.getZombieAttack(world);
+            speed = StageSystem.getZombieSpeed(world);
+        }
+
         double difficultyMult = ModConfig.getDifficultyMultiplier(world.getDifficulty());
         health *= difficultyMult;
         attack *= difficultyMult;
 
-        var healthAttr = zombie.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_MAX_HEALTH);
+        var healthAttr = entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null) {
             healthAttr.setBaseValue(health);
-            zombie.setHealth((float) health);
+            entity.setHealth((float) health);
         }
 
-        var attackAttr = zombie.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_ATTACK_DAMAGE);
+        var attackAttr = entity.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         if (attackAttr != null) {
             attackAttr.setBaseValue(attack);
         }
 
-        world.spawnEntity(zombie);
+        var speedAttr = entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
+        if (speedAttr != null) {
+            speedAttr.setBaseValue(speed);
+        }
     }
 }
