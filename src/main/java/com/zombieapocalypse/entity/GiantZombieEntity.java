@@ -1,6 +1,7 @@
 package com.zombieapocalypse.entity;
 
 import com.zombieapocalypse.ai.BreakBlockGoal;
+import com.zombieapocalypse.ai.GiantZombieAttackGoal;
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.entity.EntityType;
@@ -17,8 +18,11 @@ import net.minecraft.world.World;
  * 巨型僵尸实体 - 原版僵尸的2倍大小变体
  * 血量: 200-600 (随阶段增长)
  * 攻击力: 8-25 (随阶段增长)
+ * 攻击范围: 2.5倍 (约为普通僵尸的2.5倍距离)
  */
 public class GiantZombieEntity extends ZombieEntity {
+
+    private static final float ATTACK_RANGE_MULTIPLIER = 2.5f;
 
     public GiantZombieEntity(EntityType<? extends GiantZombieEntity> entityType, World world) {
         super(entityType, world);
@@ -29,7 +33,7 @@ public class GiantZombieEntity extends ZombieEntity {
         // 破坏方块AI - 最高优先级
         this.goalSelector.add(0, new BreakBlockGoal(this, ModConfig.ZOMBIE_BREAK_BLOCK_INTERVAL));
 
-        this.goalSelector.add(1, new ZombieAttackGoal(this, 1.0, false));
+        this.goalSelector.add(1, new GiantZombieAttackGoal(this, 1.0, false, ATTACK_RANGE_MULTIPLIER));
         this.goalSelector.add(2, new ChaseBoatGoal(this));
         this.goalSelector.add(5, new WanderAroundFarGoal(this, 1.0));
         this.goalSelector.add(6, new LookAtEntityGoal(this, PlayerEntity.class, 8.0f));

@@ -4,6 +4,7 @@ import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.text.Text;
@@ -17,11 +18,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * HandledScreen Mixin - 仅为生存背包界面添加自定义末日风格分类标签
- * 自定义绘制按钮和面板，不再依赖创造模式纹理
+ * HandledScreen Mixin - 为生存背包界面添加自定义末日风格分类标签
+ * 当"天数"标签激活时，完全替换物品栏显示
  */
 @Mixin(HandledScreen.class)
-public abstract class InventoryScreenMixin {
+public abstract class InventoryScreenMixin extends Screen {
 
     @Shadow
     protected int x;
@@ -37,7 +38,11 @@ public abstract class InventoryScreenMixin {
     @Unique
     private int currentTab = 1; // 0=天数, 1=背包
     @Unique
-    private int hoveredTab = -1; // 鼠标悬停的标签
+    private int hoveredTab = -1;
+
+    protected InventoryScreenMixin(Text title) {
+        super(title);
+    }
 
     @Unique
     private boolean isInventoryScreen() {
@@ -50,9 +55,36 @@ public abstract class InventoryScreenMixin {
         this.y += TAB_HEIGHT + 4;
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void renderTabs(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    /**
+     * HEAD 注入：当选中"天数"标签时，取消物品栏渲染，只显示面板
+     */
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void onRenderHead(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!isInventoryScreen()) return;
+        if (currentTab == 0) {
+            // 绘制暗色背景
+            this.renderBackground(context, mouseX, mouseY, delta);
+            // 绘制天数面板
+            renderDayPanel(context, mouseX, mouseY);
+            // 取消物品栏渲染
+            ci.cancel();
+        }
+    }
+
+    /**
+     * TAIL 注入：始终渲染标签按钮（背包模式由正常渲染处理）
+     */
+    @Inject(method = "render", at = @At("TAIL"))
+    private void onRenderTail(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (!isInventoryScreen()) return;
+        renderTabButtons(context, mouseX, mouseY);
+    }
+
+    /**
+     * 渲染标签按钮
+     */
+    @Unique
+    private void renderTabButtons(DrawContext context, int mouseX, int mouseY) {
         int tabY = this.y - TAB_HEIGHT - 4;
 
         // 检测悬停
@@ -71,11 +103,6 @@ public abstract class InventoryScreenMixin {
         // 绘制 "背包" 标签
         int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
         drawCustomTab(context, tab1X, tabY, TAB_WIDTH, TAB_HEIGHT, currentTab == 1, hoveredTab == 1, "⛁", "背包");
-
-        // 如果当前是"天数"标签，渲染天数信息面板
-        if (currentTab == 0) {
-            renderDayInfo(context);
-        }
     }
 
     /**
@@ -84,10 +111,7 @@ public abstract class InventoryScreenMixin {
     @Unique
     private void drawCustomTab(DrawContext context, int x, int y, int w, int h,
                                boolean selected, boolean hovered, String icon, String label) {
-        // 背景色：选中=深红，悬停=暗红半透明，普通=暗灰
-        int bgColor;
-        int borderColor;
-        int textColor;
+        int bgColor, borderColor, textColor;
 
         if (selected) {
             bgColor = 0xCC3A0000;
@@ -103,21 +127,16 @@ public abstract class InventoryScreenMixin {
             textColor = 0x888888;
         }
 
-        // 主体背景
         context.fill(x, y, x + w, y + h, bgColor);
+        context.fill(x, y, x + w, y + 1, borderColor);
+        context.fill(x, y + h - 1, x + w, y + h, borderColor);
+        context.fill(x, y, x + 1, y + h, borderColor);
+        context.fill(x + w - 1, y, x + w, y + h, borderColor);
 
-        // 边框
-        context.fill(x, y, x + w, y + 1, borderColor);           // 顶部
-        context.fill(x, y + h - 1, x + w, y + h, borderColor);   // 底部
-        context.fill(x, y, x + 1, y + h, borderColor);           // 左侧
-        context.fill(x + w - 1, y, x + w, y + h, borderColor);   // 右侧
-
-        // 选中时底部红色高亮条
         if (selected) {
             context.fill(x + 2, y + h - 2, x + w - 2, y + h - 1, 0xFFFF3333);
         }
 
-        // 图标 + 文字
         var renderer = MinecraftClient.getInstance().textRenderer;
         String displayText = icon + " " + label;
         int textWidth = renderer.getWidth(displayText);
@@ -127,10 +146,10 @@ public abstract class InventoryScreenMixin {
     }
 
     /**
-     * 渲染天数信息面板 (末日风格)
+     * 渲染天数信息面板 (末日风格，完整替换物品栏)
      */
     @Unique
-    private void renderDayInfo(DrawContext context) {
+    private void renderDayPanel(DrawContext context, int mouseX, int mouseY) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         World world = client.player.getWorld();
@@ -143,21 +162,18 @@ public abstract class InventoryScreenMixin {
         int panelW = 176;
         int panelH = 166;
 
-        // ===== 面板背景 (末日风格：深色背景 + 红色边框) =====
-        // 主背景
-        context.fill(this.x, this.y, this.x + panelW, this.y + panelH, 0xDD111111);
+        // ===== 面板背景 =====
+        context.fill(this.x, this.y, this.x + panelW, this.y + panelH, 0xFF0A0A0A);
         // 红色边框
-        context.fill(this.x, this.y, this.x + panelW, this.y + 2, 0xCCFF2222);           // 顶部粗线
-        context.fill(this.x, this.y + panelH - 1, this.x + panelW, this.y + panelH, 0x88FF2222); // 底部
-        context.fill(this.x, this.y, this.x + 1, this.y + panelH, 0x88FF2222);            // 左侧
-        context.fill(this.x + panelW - 1, this.y, this.x + panelW, this.y + panelH, 0x88FF2222); // 右侧
-        // 四角加粗
+        context.fill(this.x, this.y, this.x + panelW, this.y + 2, 0xFFFF2222);
+        context.fill(this.x, this.y + panelH - 1, this.x + panelW, this.y + panelH, 0x88FF2222);
+        context.fill(this.x, this.y, this.x + 1, this.y + panelH, 0x88FF2222);
+        context.fill(this.x + panelW - 1, this.y, this.x + panelW, this.y + panelH, 0x88FF2222);
         context.fill(this.x, this.y, this.x + 4, this.y + 1, 0xFFFF3333);
         context.fill(this.x + panelW - 4, this.y, this.x + panelW, this.y + 1, 0xFFFF3333);
 
         // ===== 标题区域 =====
         int titleY = this.y + 10;
-        // 标题横幅
         context.fill(this.x + 8, titleY - 2, this.x + panelW - 8, titleY + 16, 0x66330000);
         context.fill(this.x + 8, titleY - 2, this.x + panelW - 8, titleY - 1, 0xCCFF3333);
         context.fill(this.x + 8, titleY + 15, this.x + panelW - 8, titleY + 16, 0xCCFF3333);
@@ -169,22 +185,18 @@ public abstract class InventoryScreenMixin {
         int cardW = panelW - 16;
         int cardX = this.x + 8;
 
-        // 卡片背景
         drawPanelCard(context, cardX, cardY, cardW, 42);
-        // 天数文字
         context.drawTextWithShadow(renderer,
                 Text.literal("§f当前天数: §e§l" + currentDay + " §7/ " + ModConfig.TOTAL_DAYS),
                 cardX + 10, cardY + 8, 0xFFFFFF);
-        // 进度条背景
+
         int progY = cardY + 24;
         int progH = 10;
         context.fill(cardX + 10, progY, cardX + cardW - 10, progY + progH, 0xFF000000);
-        // 进度条填充
         int filledW = (int) ((cardW - 20) * progress);
         int barColor = progress < 0.3 ? 0xFF44AA44 : progress < 0.6 ? 0xFFCCAA44 :
                 progress < 0.8 ? 0xFFFF8844 : 0xFFFF3333;
         context.fill(cardX + 10, progY + 1, cardX + 10 + filledW, progY + progH - 1, barColor);
-        // 进度百分比
         context.drawCenteredTextWithShadow(renderer,
                 Text.literal(String.format("§f%.1f%%", progress * 100)),
                 centerX, progY + 1, 0xFFFFFF);
@@ -206,7 +218,6 @@ public abstract class InventoryScreenMixin {
                 Text.literal("§c§l⚔ 僵尸属性"), cardX + 10, cardY + 6, 0xFF4444);
 
         int rowY = cardY + 22;
-        // 属性行 - 使用分隔线
         drawAttributeRow(context, renderer, cardX + 10, rowY, cardW - 20,
                 "§7血量", String.format("§c%.0f", zombieHealth),
                 "§7攻击", String.format("§c%.1f", zombieAttack));
@@ -228,30 +239,21 @@ public abstract class InventoryScreenMixin {
         drawPanelCard(context, cardX, cardY, cardW, 24);
 
         String tip;
-        String tipColor;
         if (currentDay <= 10) {
             tip = "§a初期阶段 §7- 僵尸较弱，抓紧收集资源";
-            tipColor = "§a";
         } else if (currentDay <= 30) {
             tip = "§e发展阶段 §7- 僵尸变强，建造防御工事";
-            tipColor = "§e";
         } else if (currentDay <= 50) {
             tip = "§6中期阶段 §7- 僵尸很强，注意防守";
-            tipColor = "§6";
         } else if (currentDay <= 70) {
             tip = "§c后期阶段 §7- 巨型僵尸频繁出现！";
-            tipColor = "§c";
         } else {
             tip = "§4最终阶段 §7- 拼尽全力生存下去！";
-            tipColor = "§4";
         }
         context.drawCenteredTextWithShadow(renderer,
                 Text.literal(tip), centerX, cardY + 8, 0xFFFFFF);
     }
 
-    /**
-     * 绘制属性行（两列）
-     */
     @Unique
     private void drawAttributeRow(DrawContext context, net.minecraft.client.font.TextRenderer renderer,
                                   int x, int y, int width,
@@ -263,16 +265,10 @@ public abstract class InventoryScreenMixin {
                 Text.literal(label2 + ": " + value2), midX, y, 0xAAAAAA);
     }
 
-    /**
-     * 绘制面板卡片背景
-     */
     @Unique
     private void drawPanelCard(DrawContext context, int x, int y, int w, int h) {
-        // 深色半透明背景
         context.fill(x, y, x + w, y + h, 0x66222222);
-        // 顶部边框线
         context.fill(x, y, x + w, y + 1, 0x88444444);
-        // 底部边框线
         context.fill(x, y + h - 1, x + w, y + h, 0x88333333);
     }
 
