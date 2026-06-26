@@ -25,38 +25,38 @@ public class ModConfig {
     public static double ZOMBIE_BASE_HEALTH = 20.0;
 
     /** 僵尸最高血量 (第100天) */
-    public static double ZOMBIE_MAX_HEALTH = 400.0;
+    public static double ZOMBIE_MAX_HEALTH = 200.0;
 
     /** 僵尸基础攻击力 */
     public static double ZOMBIE_BASE_ATTACK = 3.0;
 
     /** 僵尸最高攻击力 */
-    public static double ZOMBIE_MAX_ATTACK = 15.0;
+    public static double ZOMBIE_MAX_ATTACK = 20.0;
 
     /** 僵尸基础移动速度 */
     public static double ZOMBIE_BASE_SPEED = 0.23;
 
     /** 僵尸最高移动速度 */
-    public static double ZOMBIE_MAX_SPEED = 0.35;
+    public static double ZOMBIE_MAX_SPEED = 0.38;
 
     /** 僵尸基础护甲值 */
     public static double ZOMBIE_BASE_ARMOR = 2.0;
 
     /** 僵尸最高护甲值 */
-    public static double ZOMBIE_MAX_ARMOR = 12.0;
+    public static double ZOMBIE_MAX_ARMOR = 15.0;
 
     // ========== 巨型僵尸 ==========
     /** 巨型僵尸基础血量 */
     public static double GIANT_ZOMBIE_BASE_HEALTH = 200.0;
 
     /** 巨型僵尸最高血量 */
-    public static double GIANT_ZOMBIE_MAX_HEALTH = 600.0;
+    public static double GIANT_ZOMBIE_MAX_HEALTH = 1000.0;
 
     /** 巨型僵尸基础攻击力 */
-    public static double GIANT_ZOMBIE_BASE_ATTACK = 8.0;
+    public static double GIANT_ZOMBIE_BASE_ATTACK = 10.0;
 
     /** 巨型僵尸最高攻击力 */
-    public static double GIANT_ZOMBIE_MAX_ATTACK = 25.0;
+    public static double GIANT_ZOMBIE_MAX_ATTACK = 35.0;
 
     /** 巨型僵尸基础生成概率 (第1天) */
     public static double GIANT_ZOMBIE_BASE_CHANCE = 0.01;
@@ -76,10 +76,13 @@ public class ModConfig {
     public static boolean ZOMBIE_CAN_BREAK_BLOCKS = true;
 
     /** 僵尸破坏方块间隔 (tick) */
-    public static int ZOMBIE_BREAK_BLOCK_INTERVAL = 60;
+    public static int ZOMBIE_BREAK_BLOCK_INTERVAL = 30;
 
     /** 僵尸破坏方块硬度上限 */
-    public static float ZOMBIE_BREAK_HARDNESS_LIMIT = 5.0f;
+    public static float ZOMBIE_BREAK_HARDNESS_LIMIT = 10.0f;
+
+    /** 僵尸搭方块间隔 (tick) */
+    public static int ZOMBIE_BUILD_BLOCK_INTERVAL = 40;
 
     /** 僵尸增强AI寻路范围 */
     public static int ZOMBIE_ENHANCED_FOLLOW_RANGE = 64;

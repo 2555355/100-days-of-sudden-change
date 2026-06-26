@@ -13,9 +13,10 @@ import net.minecraft.world.World;
 import java.util.EnumSet;
 
 /**
- * 僵尸破坏方块AI
+ * 僵尸破坏方块AI (增强版)
  * 僵尸会破坏阻挡其追击玩家的方块
  * 包括：木质、土质、玻璃、石质方块等
+ * 更激进的破坏策略：检查周围多个方向，快速突破障碍
  */
 public class BreakBlockGoal extends Goal {
     private final PathAwareEntity mob;
@@ -38,57 +39,68 @@ public class BreakBlockGoal extends Goal {
             return false;
         }
 
-        // 只有有攻击目标时才破坏方块
         LivingEntity target = this.mob.getTarget();
         if (target == null || !target.isAlive()) return false;
 
-        // 检测前方是否有阻挡方块
         return findBlockToBreak(target);
     }
 
     private boolean findBlockToBreak(LivingEntity target) {
         World world = this.mob.getWorld();
         BlockPos mobPos = this.mob.getBlockPos();
-
-        // 获取僵尸面向的方向
+        BlockPos targetPos = target.getBlockPos();
         Direction facing = this.mob.getHorizontalFacing();
 
-        // 检查前方、上方、下方的方块
-        BlockPos[] checkPositions = {
-                mobPos.up(),                   // 头部高度
-                mobPos.up(2),                  // 头顶上方
-                mobPos.offset(facing),         // 前方
-                mobPos.up().offset(facing),    // 前方头部高度
-                mobPos.down(),                 // 脚下
-        };
+        // 检查所有阻挡路径的方块
+        // 前方 (多个高度)
+        for (int y = 0; y <= 2; y++) {
+            BlockPos checkPos = mobPos.offset(facing).up(y);
+            if (checkAndSetBlock(world, checkPos)) return true;
+        }
 
-        BlockPos targetPos = target.getBlockPos();
-        for (BlockPos checkPos : checkPositions) {
-            BlockState state = world.getBlockState(checkPos);
-            if (canBreakBlock(state, world, checkPos)) {
-                // 检查是否阻挡了到目标的路径
-                if (isBlockingPath(checkPos, targetPos)) {
-                    this.targetBlock = checkPos.toImmutable();
-                    return true;
-                }
-            }
+        // 前方2格 (多个高度)
+        for (int y = 0; y <= 2; y++) {
+            BlockPos checkPos = mobPos.offset(facing, 2).up(y);
+            if (checkAndSetBlock(world, checkPos)) return true;
+        }
+
+        // 头顶
+        BlockPos headPos = mobPos.up(1);
+        if (checkAndSetBlock(world, headPos)) return true;
+        BlockPos headPos2 = mobPos.up(2);
+        if (checkAndSetBlock(world, headPos2)) return true;
+
+        // 脚下
+        BlockPos feetPos = mobPos;
+        if (checkAndSetBlock(world, feetPos)) return true;
+
+        // 左右侧
+        Direction left = facing.rotateYCounterclockwise();
+        Direction right = facing.rotateYClockwise();
+        for (int y = 0; y <= 2; y++) {
+            if (checkAndSetBlock(world, mobPos.offset(left).up(y))) return true;
+            if (checkAndSetBlock(world, mobPos.offset(right).up(y))) return true;
         }
 
         return false;
     }
 
-    private boolean isBlockingPath(BlockPos blockPos, BlockPos targetPos) {
-        BlockPos mobPos = this.mob.getBlockPos();
-        // 方块在僵尸和目标之间
-        return (blockPos.getY() >= mobPos.getY() - 1 && blockPos.getY() <= mobPos.getY() + 2);
+    private boolean checkAndSetBlock(World world, BlockPos pos) {
+        if (pos.equals(this.mob.getBlockPos())) return false; // 不破坏自己站的方块
+        BlockState state = world.getBlockState(pos);
+        if (canBreakBlock(state, world, pos)) {
+            this.targetBlock = pos.toImmutable();
+            return true;
+        }
+        return false;
     }
 
     private boolean canBreakBlock(BlockState state, World world, BlockPos pos) {
         if (state.isAir()) return false;
-        if (state.getHardness(world, pos) < 0) return false; // 不可破坏
+        if (state.getHardness(world, pos) < 0) return false;
         if (state.getHardness(world, pos) > ModConfig.ZOMBIE_BREAK_HARDNESS_LIMIT) return false;
 
-        // 不可破坏的方块类型
+        // 不可破坏的方块
         if (state.isOf(Blocks.BEDROCK)) return false;
         if (state.isOf(Blocks.BARRIER)) return false;
         if (state.isOf(Blocks.COMMAND_BLOCK)) return false;
@@ -97,6 +109,8 @@ public class BreakBlockGoal extends Goal {
         if (state.isOf(Blocks.CRYING_OBSIDIAN)) return false;
         if (state.isOf(Blocks.END_PORTAL_FRAME)) return false;
         if (state.isOf(Blocks.REINFORCED_DEEPSLATE)) return false;
+        if (state.isOf(Blocks.NETHERITE_BLOCK)) return false;
+        if (state.isOf(Blocks.ANCIENT_DEBRIS)) return false;
 
         return true;
     }
@@ -109,7 +123,6 @@ public class BreakBlockGoal extends Goal {
             BlockState state = world.getBlockState(this.targetBlock);
 
             if (canBreakBlock(state, world, this.targetBlock)) {
-                // 直接破坏方块 (在生存模式下产生掉落物)
                 world.breakBlock(this.targetBlock, true, this.mob);
             }
             this.targetBlock = null;
@@ -118,7 +131,7 @@ public class BreakBlockGoal extends Goal {
 
     @Override
     public boolean shouldContinue() {
-        return false; // 每次执行一次破坏
+        return false;
     }
 
     @Override

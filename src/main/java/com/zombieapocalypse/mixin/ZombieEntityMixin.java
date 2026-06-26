@@ -1,6 +1,7 @@
 package com.zombieapocalypse.mixin;
 
 import com.zombieapocalypse.ai.BreakBlockGoal;
+import com.zombieapocalypse.ai.BuildBlockGoal;
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.entity.EntityType;
@@ -19,8 +20,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Mixin to ZombieEntity - 核心僵尸行为修改
  * 1. 防白天燃烧
  * 2. 添加破坏方块AI
- * 3. 根据阶段动态更新属性
- * 4. 允许白天生成
+ * 3. 添加搭方块AI (爬高/搭桥)
+ * 4. 根据阶段动态更新属性
+ * 5. 允许白天生成
  */
 @Mixin(ZombieEntity.class)
 public abstract class ZombieEntityMixin extends HostileEntity {
@@ -40,13 +42,15 @@ public abstract class ZombieEntityMixin extends HostileEntity {
     }
 
     /**
-     * 注入AI目标 - 添加破坏方块AI
+     * 注入AI目标 - 添加破坏方块AI和搭方块AI
      */
     @Inject(method = "initGoals", at = @At("HEAD"))
-    private void addBreakBlockGoal(CallbackInfo ci) {
+    private void addCustomGoals(CallbackInfo ci) {
         ZombieEntity self = (ZombieEntity) (Object) this;
-        // 添加破坏方块AI为最高优先级
+        // 最高优先级：破坏方块AI (突破障碍)
         this.goalSelector.add(0, new BreakBlockGoal(self, ModConfig.ZOMBIE_BREAK_BLOCK_INTERVAL));
+        // 次高优先级：搭方块AI (爬高/搭桥)
+        this.goalSelector.add(1, new BuildBlockGoal(self, ModConfig.ZOMBIE_BUILD_BLOCK_INTERVAL));
     }
 
     /**
