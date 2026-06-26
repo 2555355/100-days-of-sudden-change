@@ -57,7 +57,7 @@ public class GiantZombieEntity extends ZombieEntity {
     @Override
     public void tick() {
         super.tick();
-        if (!this.getWorld().isClient) {
+        if (!this.getWorld().isClient && this.isAlive()) {
             updateAttributes();
         }
     }
@@ -80,10 +80,11 @@ public class GiantZombieEntity extends ZombieEntity {
 
         var healthAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null && healthAttr.getBaseValue() != health) {
+            // 按比例恢复血量，确保不长期残血
+            double oldMax = healthAttr.getBaseValue();
+            float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
-            if (this.getHealth() > (float) health) {
-                this.setHealth((float) health);
-            }
+            this.setHealth(Math.min((float) health, Math.max(1.0f, (float) health * healthRatio)));
         }
 
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
