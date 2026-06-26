@@ -76,27 +76,24 @@ public abstract class ZombieEntityMixin extends HostileEntity {
         double speed = StageSystem.getZombieSpeed(world);
         double armor = StageSystem.getZombieArmor(world);
 
-        // 应用难度加成
         double difficultyMult = ModConfig.getDifficultyMultiplier(world.getDifficulty());
         health *= difficultyMult;
         attack *= difficultyMult;
 
-        // 更新最大生命值
         var healthAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null && healthAttr.getBaseValue() != health) {
+            // 按比例恢复血量，避免僵尸长期残血
+            double oldMax = healthAttr.getBaseValue();
+            float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
-            if (this.getHealth() > (float) health) {
-                this.setHealth((float) health);
-            }
+            this.setHealth(Math.min((float) health, Math.max(1.0f, (float) health * healthRatio)));
         }
 
-        // 更新攻击力
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         if (attackAttr != null && attackAttr.getBaseValue() != attack) {
             attackAttr.setBaseValue(attack);
         }
 
-        // 更新移动速度
         var speedAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
         if (speedAttr != null) {
             double currentSpeed = speedAttr.getBaseValue();
@@ -105,7 +102,6 @@ public abstract class ZombieEntityMixin extends HostileEntity {
             }
         }
 
-        // 更新护甲值
         var armorAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ARMOR);
         if (armorAttr != null && armorAttr.getBaseValue() != armor) {
             armorAttr.setBaseValue(armor);

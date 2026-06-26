@@ -50,14 +50,13 @@ public class ZombieApocalypseMod implements ModInitializer {
         ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
             // 过滤：移除非僵尸敌对生物
             if (entity instanceof Monster && !(entity instanceof ZombieEntity)) {
-                // 以极低概率(2%)允许其他敌对生物存活
                 if (world.getRandom().nextDouble() > ModConfig.OTHER_HOSTILE_SPAWN_CHANCE) {
                     entity.discard();
                     return;
                 }
             }
 
-            // 僵尸替换为巨型僵尸
+            // 僵尸替换为巨型僵尸，或应用阶段属性
             if (entity instanceof ZombieEntity && !(entity instanceof GiantZombieEntity)) {
                 double giantChance = StageSystem.getGiantZombieChance(world);
                 if (world.getRandom().nextDouble() < giantChance) {
@@ -70,6 +69,9 @@ public class ZombieApocalypseMod implements ModInitializer {
                     giant.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
                     applyStageAttributes(giant, world, true);
                     world.spawnEntity(giant);
+                } else {
+                    // 普通僵尸也应用阶段属性，确保满血生成
+                    applyStageAttributes(entity, world, false);
                 }
             }
         });
