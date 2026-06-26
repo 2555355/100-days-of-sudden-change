@@ -70,6 +70,8 @@ public abstract class ZombieEntityMixin extends HostileEntity {
     private void updateZombieAttributes() {
         World world = this.getWorld();
         if (world == null) return;
+        // 死了就不更新，避免复活僵尸
+        if (this.isDead()) return;
 
         double health = StageSystem.getZombieHealth(world);
         double attack = StageSystem.getZombieAttack(world);
@@ -86,7 +88,7 @@ public abstract class ZombieEntityMixin extends HostileEntity {
             double oldMax = healthAttr.getBaseValue();
             float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
-            this.setHealth(Math.min((float) health, Math.max(1.0f, (float) health * healthRatio)));
+            this.setHealth(Math.min((float) health, (float) health * healthRatio));
         }
 
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);

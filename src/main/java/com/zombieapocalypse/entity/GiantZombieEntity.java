@@ -68,6 +68,8 @@ public class GiantZombieEntity extends ZombieEntity {
     private void updateAttributes() {
         World world = this.getWorld();
         if (world == null) return;
+        // 死了就不更新，避免复活
+        if (this.isDead()) return;
 
         double health = StageSystem.getGiantZombieHealth(world);
         double attack = StageSystem.getGiantZombieAttack(world);
@@ -80,11 +82,11 @@ public class GiantZombieEntity extends ZombieEntity {
 
         var healthAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null && healthAttr.getBaseValue() != health) {
-            // 按比例恢复血量，确保不长期残血
+            // 按比例恢复血量，死了就不复活
             double oldMax = healthAttr.getBaseValue();
             float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
-            this.setHealth(Math.min((float) health, Math.max(1.0f, (float) health * healthRatio)));
+            this.setHealth(Math.min((float) health, (float) health * healthRatio));
         }
 
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
