@@ -7,6 +7,7 @@ import com.zombieapocalypse.entity.ModEntities;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.*;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.Monster;
@@ -33,6 +34,9 @@ public class ZombieApocalypseMod implements ModInitializer {
 
         // 注册实体
         ModEntities.registerEntities();
+
+        // 注册巨型僵尸默认属性
+        FabricDefaultAttributeRegistry.register(ModEntities.GIANT_ZOMBIE, GiantZombieEntity.createGiantZombieAttributes());
 
         // 注册巨型僵尸生成限制
         SpawnRestriction.register(
