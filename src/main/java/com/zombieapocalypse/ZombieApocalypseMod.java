@@ -4,15 +4,19 @@ import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import com.zombieapocalypse.entity.GiantZombieEntity;
 import com.zombieapocalypse.entity.ModEntities;
+import com.zombieapocalypse.item.ModItems;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.*;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -35,6 +39,9 @@ public class ZombieApocalypseMod implements ModInitializer {
 
         // 注册实体
         ModEntities.registerEntities();
+
+        // 注册物品
+        ModItems.registerItems();
 
         // 注册巨型僵尸默认属性
         FabricDefaultAttributeRegistry.register(ModEntities.GIANT_ZOMBIE, GiantZombieEntity.createGiantZombieAttributes());
@@ -79,6 +86,31 @@ public class ZombieApocalypseMod implements ModInitializer {
 
         // 白天僵尸生成
         ServerTickEvents.END_WORLD_TICK.register(this::onWorldTick);
+
+        // 玩家加入时发放末日情报书
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerPlayerEntity player = handler.getPlayer();
+            server.execute(() -> {
+                // 检查玩家是否已拥有末日情报书
+                boolean hasBook = false;
+                for (int i = 0; i < player.getInventory().size(); i++) {
+                    ItemStack stack = player.getInventory().getStack(i);
+                    if (stack.getItem() == ModItems.APOCALYPSE_BOOK) {
+                        hasBook = true;
+                        break;
+                    }
+                }
+                if (!hasBook) {
+                    ItemStack bookStack = new ItemStack(ModItems.APOCALYPSE_BOOK);
+                    if (!player.getInventory().insertStack(bookStack)) {
+                        // 背包满则掉落到地上
+                        player.dropItem(bookStack, false);
+                    }
+                    player.sendMessage(Text.literal("§c☠ 你获得了一本 §4§l末日情报§c☠"), false);
+                    player.sendMessage(Text.literal("§7右键使用以查看当前末日情报"), false);
+                }
+            });
+        });
 
         LOGGER.info("=== 惊变100天 模组加载完成 ===");
     }

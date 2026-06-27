@@ -6,10 +6,7 @@
     "ZombieEntityMixin",
     "ZombieDropMixin"
   ],
-  "client": [
-    "InventoryScreenMixin",
-    "MouseScrollMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

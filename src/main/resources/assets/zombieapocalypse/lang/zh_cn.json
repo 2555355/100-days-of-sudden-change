@@ -1,5 +1,6 @@
 {
   "entity.zombieapocalypse.giant_zombie": "巨型僵尸",
+  "item.zombieapocalypse.apocalypse_book": "末日情报",
   "mod.zombieapocalypse.name": "惊变100天",
   "mod.zombieapocalypse.stage": "第 %s 天",
   "mod.zombieapocalypse.zombie_health": "僵尸血量: %.0f",

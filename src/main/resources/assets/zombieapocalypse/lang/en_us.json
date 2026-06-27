@@ -1,5 +1,6 @@
 {
   "entity.zombieapocalypse.giant_zombie": "Giant Zombie",
+  "item.zombieapocalypse.apocalypse_book": "Apocalypse Intel",
   "mod.zombieapocalypse.name": "100 Days Zombie Apocalypse",
   "mod.zombieapocalypse.stage": "Day %s",
   "mod.zombieapocalypse.zombie_health": "Zombie Health: %.0f",

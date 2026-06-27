@@ -1,234 +1,83 @@
-package com.zombieapocalypse.mixin;
+package com.zombieapocalypse.client;
 
-import com.zombieapocalypse.client.ScrollState;
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 末日风格UI - v2.0.0
- * 主标签: 生存背包 / 末日情报
- * 末日情报内含3个子页面: 基础信息 / 僵尸详情 / 巨型僵尸详情
- * 内容超出可视区域时支持鼠标滚轮滚动
+ * 末日情报书界面 - v3.0.0
+ * 3个子页面: 基础信息 / 僵尸详情 / 巨型僵尸详情
+ * 内容超出可视区域时支持鼠标滚轮滚动（直接 override mouseScrolled，无需 Mixin）
+ * 面板尺寸自适应窗口（取窗口大小的较小比例，居中显示）
  */
-@Mixin(HandledScreen.class)
-public abstract class InventoryScreenMixin {
-
-    @Shadow protected int x;
-    @Shadow protected int y;
+public class ApocalypseBookScreen extends Screen {
 
     // 配色方案
-    @Unique private static final int COLOR_BG_DARK    = 0xF0100A0A;
-    @Unique private static final int COLOR_BG_PANEL   = 0xFF0D0808;
-    @Unique private static final int COLOR_BG_CARD    = 0xCC1A1212;
-    @Unique private static final int COLOR_BG_SUBTAB  = 0x88151010;
-    @Unique private static final int COLOR_BG_SUBTAB_SEL = 0xEE2A0808;
-    @Unique private static final int COLOR_BORDER_RED = 0xFFFF2A2A;
-    @Unique private static final int COLOR_BORDER_DIM = 0x66883333;
-    @Unique private static final int COLOR_ACCENT     = 0xFFFF4444;
-    @Unique private static final int COLOR_TEXT       = 0xFFE0E0E0;
-    @Unique private static final int COLOR_TEXT_DIM   = 0xFF999999;
-    @Unique private static final int COLOR_TEXT_HI    = 0xFFFFAA00;
-    @Unique private static final int COLOR_DANGER     = 0xFFFF3333;
-    @Unique private static final int COLOR_BLOOD_MOON = 0xFFFF0000;
-    @Unique private static final int COLOR_ZOMBIE     = 0xFFFF6644;
-    @Unique private static final int COLOR_GIANT      = 0xFFFF66FF;
+    private static final int COLOR_BG_DARK    = 0xF0100A0A;
+    private static final int COLOR_BG_PANEL   = 0xFF0D0808;
+    private static final int COLOR_BG_CARD    = 0xCC1A1212;
+    private static final int COLOR_BG_SUBTAB  = 0x88151010;
+    private static final int COLOR_BG_SUBTAB_SEL = 0xEE2A0808;
+    private static final int COLOR_BORDER_RED = 0xFFFF2A2A;
+    private static final int COLOR_BORDER_DIM = 0x66883333;
+    private static final int COLOR_ACCENT     = 0xFFFF4444;
+    private static final int COLOR_TEXT       = 0xFFE0E0E0;
+    private static final int COLOR_TEXT_DIM   = 0xFF999999;
+    private static final int COLOR_TEXT_HI    = 0xFFFFAA00;
+    private static final int COLOR_DANGER     = 0xFFFF3333;
+    private static final int COLOR_BLOOD_MOON = 0xFFFF0000;
+    private static final int COLOR_ZOMBIE     = 0xFFFF6644;
+    private static final int COLOR_GIANT      = 0xFFFF66FF;
 
-    @Unique private static final int TAB_WIDTH = 62;
-    @Unique private static final int TAB_HEIGHT = 26;
-    @Unique private static final int TAB_GAP = 3;
-    @Unique private static final int PANEL_W = 176;
-    @Unique private static final int PANEL_H = 166;
-    @Unique private static final int SUBTAB_W = 52;
-    @Unique private static final int SUBTAB_H = 14;
-    @Unique private static final int SCROLL_BAR_W = 3;
+    // 面板尺寸（比原版背包大，给内容更多空间）
+    private static final int PANEL_W = 200;
+    private static final int PANEL_H = 220;
+    private static final int SUBTAB_W = 56;
+    private static final int SUBTAB_H = 14;
+    private static final int SCROLL_BAR_W = 3;
+    private static final int SCROLL_STEP = 12;
 
-    @Unique private int hoveredTab = -1;
-    @Unique private int hoveredSubTab = -1;
+    private int currentSubTab = 0;   // 0=基础, 1=僵尸, 2=巨型
+    private int hoveredSubTab = -1;
+    // 每个子页面独立的滚动偏移
+    private int scrollBasic = 0;
+    private int scrollZombie = 0;
+    private int scrollGiant = 0;
 
-    @Unique
-    private boolean isInventoryScreen() {
-        return (Object) this instanceof InventoryScreen;
+    // 面板左上角坐标（居中）
+    private int panelX;
+    private int panelY;
+
+    public ApocalypseBookScreen() {
+        super(Text.literal("末日情报"));
     }
 
-    @Unique
-    private int getTabOffset() {
-        return TAB_HEIGHT + 3;
+    @Override
+    protected void init() {
+        // 居中放置面板
+        panelX = (this.width - PANEL_W) / 2;
+        panelY = (this.height - PANEL_H) / 2;
     }
 
-    @Inject(method = "init", at = @At("TAIL"))
-    private void adjustLayout(CallbackInfo ci) {
-    }
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 全屏深色背景
+        context.fill(0, 0, this.width, this.height, COLOR_BG_DARK);
+        context.fill(0, 0, this.width, this.height / 4, 0x44000000);
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void onRenderHead(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (!isInventoryScreen()) return;
-        // 同步状态给 MouseScrollMixin
-        ScrollState.panelX = this.x;
-        ScrollState.panelY = this.y + getTabOffset();
-        ScrollState.panelW = PANEL_W;
-        ScrollState.panelH = PANEL_H;
-        ScrollState.isActive = true;
-        if (ScrollState.currentTab == 0) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            int sw = client.getWindow().getScaledWidth();
-            int sh = client.getWindow().getScaledHeight();
-            context.fill(0, 0, sw, sh, COLOR_BG_DARK);
-            context.fill(0, 0, sw, sh / 4, 0x44000000);
-            int panelY = this.y + getTabOffset();
-            renderDayPanel(context, mouseX, mouseY, this.x, panelY);
-            // 关键：HEAD cancel 会跳过整个 render 方法体，TAIL 注入也不会执行。
-            // 必须在 cancel 之前绘制标签按钮，否则用户无法切回生存背包。
-            renderTabButtons(context, mouseX, mouseY);
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "render", at = @At("TAIL"))
-    private void onRenderTail(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (!isInventoryScreen()) return;
-        // 仅在生存背包（原版渲染未被取消）时绘制标签；
-        // 末日情报模式下标签已在 HEAD 的 cancel 前绘制。
-        if (ScrollState.currentTab != 0) {
-            renderTabButtons(context, mouseX, mouseY);
-        }
-    }
-
-    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void handleTabClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
-        if (!isInventoryScreen()) return;
-        int tabY = this.y - TAB_HEIGHT;
-        // 主标签
-        if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
-            int tab0X = this.x + 4;
-            if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) {
-                ScrollState.currentTab = 1;
-                cir.setReturnValue(true);
-                return;
-            }
-            int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
-            if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) {
-                ScrollState.currentTab = 0;
-                cir.setReturnValue(true);
-                return;
-            }
-        }
-        // 末日情报面板区域
-        if (ScrollState.currentTab == 0) {
-            int panelY = this.y + getTabOffset();
-            if (mouseX >= this.x && mouseX <= this.x + PANEL_W &&
-                    mouseY >= panelY && mouseY <= panelY + PANEL_H) {
-                // 检查子标签点击
-                int subTabY = panelY + 24;
-                if (mouseY >= subTabY && mouseY <= subTabY + SUBTAB_H) {
-                    int subTab0X = this.x + 6;
-                    if (mouseX >= subTab0X && mouseX <= subTab0X + SUBTAB_W) {
-                        if (ScrollState.currentSubTab != 0) {
-                            ScrollState.currentSubTab = 0;
-                            ScrollState.scrollBasic = 0;
-                        }
-                        cir.setReturnValue(true);
-                        return;
-                    }
-                    int subTab1X = subTab0X + SUBTAB_W + 2;
-                    if (mouseX >= subTab1X && mouseX <= subTab1X + SUBTAB_W) {
-                        if (ScrollState.currentSubTab != 1) {
-                            ScrollState.currentSubTab = 1;
-                            ScrollState.scrollZombie = 0;
-                        }
-                        cir.setReturnValue(true);
-                        return;
-                    }
-                    int subTab2X = subTab1X + SUBTAB_W + 2;
-                    if (mouseX >= subTab2X && mouseX <= subTab2X + SUBTAB_W) {
-                        if (ScrollState.currentSubTab != 2) {
-                            ScrollState.currentSubTab = 2;
-                            ScrollState.scrollGiant = 0;
-                        }
-                        cir.setReturnValue(true);
-                        return;
-                    }
-                }
-                cir.setReturnValue(true);
-            }
-        }
-    }
-
-    // ===================== 主标签按钮 =====================
-
-    @Unique
-    private void renderTabButtons(DrawContext context, int mouseX, int mouseY) {
-        int tabY = this.y - TAB_HEIGHT;
-        hoveredTab = -1;
-        if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
-            int tab0X = this.x + 4;
-            if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) hoveredTab = 1;
-            int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
-            if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) hoveredTab = 0;
-        }
-
-        int tab0X = this.x + 4;
-        drawTab(context, tab0X, tabY, "⛏", "生存背包", ScrollState.currentTab == 1, hoveredTab == 1);
-        int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
-        drawTab(context, tab1X, tabY, "☠", "末日情报", ScrollState.currentTab == 0, hoveredTab == 0);
-    }
-
-    @Unique
-    private void drawTab(DrawContext ctx, int x, int y, String icon, String label,
-                         boolean selected, boolean hovered) {
-        int w = TAB_WIDTH;
-        int h = TAB_HEIGHT;
-        int bg, border, textCol, iconCol;
-
-        if (selected) {
-            bg = 0xEE2A0808; border = COLOR_BORDER_RED; textCol = 0xFFFF6666; iconCol = COLOR_ACCENT;
-        } else if (hovered) {
-            bg = 0xBB1A0A0A; border = 0xAAFF4444; textCol = 0xFFCCCCCC; iconCol = 0xFFCC8888;
-        } else {
-            bg = 0x88101010; border = COLOR_BORDER_DIM; textCol = COLOR_TEXT_DIM; iconCol = 0xFF886666;
-        }
-
-        ctx.fill(x, y, x + w, y + h, bg);
-        ctx.fill(x, y, x + 1, y + h, border);
-        ctx.fill(x + w - 1, y, x + w, y + h, border);
-        ctx.fill(x, y, x + w, y + 1, border);
-        if (selected) {
-            ctx.fill(x + 1, y + h - 2, x + w - 1, y + h, COLOR_ACCENT);
-            ctx.fill(x + 2, y + 1, x + w - 2, y + 2, 0x44FF6666);
-        } else {
-            ctx.fill(x, y + h - 1, x + w, y + h, border);
-        }
-
-        TextRenderer tr = MinecraftClient.getInstance().textRenderer;
-        int iconW = tr.getWidth(icon);
-        ctx.drawTextWithShadow(tr, Text.literal(icon), x + 6, y + (h - 8) / 2, iconCol);
-        int labelX = x + 6 + iconW + 4;
-        ctx.drawTextWithShadow(tr, Text.literal(label), labelX, y + (h - 8) / 2, textCol);
-    }
-
-    // ===================== 末日情报面板 =====================
-
-    @Unique
-    private void renderDayPanel(DrawContext ctx, int mouseX, int mouseY, int px, int py) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         World world = client.player.getWorld();
         if (world == null) return;
 
         TextRenderer tr = client.textRenderer;
+        int px = panelX;
+        int py = panelY;
         int pw = PANEL_W;
         int ph = PANEL_H;
         int centerX = px + pw / 2;
@@ -236,70 +85,134 @@ public abstract class InventoryScreenMixin {
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
 
         // 面板背景
-        ctx.fill(px, py, px + pw, py + ph, COLOR_BG_PANEL);
+        context.fill(px, py, px + pw, py + ph, COLOR_BG_PANEL);
         for (int i = 0; i < 4; i++) {
             int alpha = 0xFF - i * 0x30;
-            ctx.fill(px, py + i, px + pw, py + i + 1, (alpha << 24) | 0x2A0808);
+            context.fill(px, py + i, px + pw, py + i + 1, (alpha << 24) | 0x2A0808);
         }
-        drawBorder(ctx, px, py, pw, ph, COLOR_BORDER_RED, 1);
-        drawCornerDecor(ctx, px, py, pw, ph);
+        drawBorder(context, px, py, pw, ph, COLOR_BORDER_RED, 1);
+        drawCornerDecor(context, px, py, pw, ph);
 
         // 标题横幅
         int titleY = py + 5;
         int titleH = 15;
-        ctx.fill(px + 6, titleY, px + pw - 6, titleY + titleH, 0x993A0505);
-        ctx.fill(px + 6, titleY, px + pw - 6, titleY + 1, COLOR_ACCENT);
-        ctx.fill(px + 6, titleY + titleH - 1, px + pw - 6, titleY + titleH, COLOR_ACCENT);
+        context.fill(px + 6, titleY, px + pw - 6, titleY + titleH, 0x993A0505);
+        context.fill(px + 6, titleY, px + pw - 6, titleY + 1, COLOR_ACCENT);
+        context.fill(px + 6, titleY + titleH - 1, px + pw - 6, titleY + titleH, COLOR_ACCENT);
         int titleColor = isBloodMoon ? COLOR_BLOOD_MOON : 0xFFFF5555;
-        ctx.drawCenteredTextWithShadow(tr, Text.literal("☠ 惊变100天 ☠"), centerX, titleY + 3, titleColor);
+        context.drawCenteredTextWithShadow(tr, Text.literal("☠ 惊变100天 ☠"), centerX, titleY + 3, titleColor);
 
         // 血月警告
         if (isBloodMoon) {
             int warnY = titleY + titleH + 1;
-            ctx.fill(px + 6, warnY, px + pw - 6, warnY + 11, 0xCC660000);
-            ctx.fill(px + 6, warnY, px + pw - 6, warnY + 1, COLOR_BLOOD_MOON);
-            ctx.fill(px + 6, warnY + 10, px + pw - 6, warnY + 11, COLOR_BLOOD_MOON);
-            ctx.drawCenteredTextWithShadow(tr, Text.literal("● 血月进行中 ●"), centerX, warnY + 1, COLOR_BLOOD_MOON);
+            context.fill(px + 6, warnY, px + pw - 6, warnY + 11, 0xCC660000);
+            context.fill(px + 6, warnY, px + pw - 6, warnY + 1, COLOR_BLOOD_MOON);
+            context.fill(px + 6, warnY + 10, px + pw - 6, warnY + 11, COLOR_BLOOD_MOON);
+            context.drawCenteredTextWithShadow(tr, Text.literal("● 血月进行中 ●"), centerX, warnY + 1, COLOR_BLOOD_MOON);
         }
 
         // 子标签栏
         int subTabY = py + 24;
-        renderSubTabs(ctx, tr, px, subTabY, mouseX, mouseY);
+        renderSubTabs(context, tr, px, subTabY, mouseX, mouseY);
 
         // 内容区域
-        int contentTop = subTabY + SUBTAB_H + 3;     // 内容可视区上沿
-        int contentBottom = py + ph - 3;             // 内容可视区下沿
+        int contentTop = subTabY + SUBTAB_H + 3;
+        int contentBottom = py + ph - 3;
         int visibleH = contentBottom - contentTop;
-        int cardW = pw - 12 - SCROLL_BAR_W - 2;      // 右侧留出滚动条空间
+        int cardW = pw - 12 - SCROLL_BAR_W - 2;
         int cardX = px + 6;
 
-        // 第一遍：测量内容高度（不影响滚动状态）
-        int measuredHeight = measurePage(ScrollState.currentSubTab);
-        ScrollState.currentContentHeight = measuredHeight;
-        // 同步可视区坐标给 MouseScrollMixin
-        ScrollState.contentTop = contentTop;
-        ScrollState.contentBottom = contentBottom;
-
-        // 限制滚动范围
+        // 测量内容高度
+        int measuredHeight = measurePage(currentSubTab);
         int maxScroll = Math.max(0, measuredHeight - visibleH);
-        if (ScrollState.getCurrentScroll() > maxScroll) ScrollState.setCurrentScroll(maxScroll);
-        int scroll = ScrollState.getCurrentScroll();
+        int scroll = getCurrentScroll();
+        if (scroll > maxScroll) {
+            scroll = maxScroll;
+            setCurrentScroll(scroll);
+        }
 
         // 启用裁剪绘制内容
-        ctx.enableScissor(cardX - 1, contentTop, cardX + cardW + 1, contentBottom);
+        context.enableScissor(cardX - 1, contentTop, cardX + cardW + 1, contentBottom);
         int canvasY = contentTop - scroll;
-        switch (ScrollState.currentSubTab) {
-            case 0 -> renderBasicPage(ctx, tr, world, cardX, canvasY, cardW);
-            case 1 -> renderZombiePage(ctx, tr, world, cardX, canvasY, cardW);
-            case 2 -> renderGiantPage(ctx, tr, world, cardX, canvasY, cardW);
+        switch (currentSubTab) {
+            case 0 -> renderBasicPage(context, tr, world, cardX, canvasY, cardW);
+            case 1 -> renderZombiePage(context, tr, world, cardX, canvasY, cardW);
+            case 2 -> renderGiantPage(context, tr, world, cardX, canvasY, cardW);
         }
-        ctx.disableScissor();
+        context.disableScissor();
 
         // 滚动条
-        drawScrollBar(ctx, px + pw - 6, contentTop, contentBottom, scroll, maxScroll);
+        drawScrollBar(context, px + pw - 6, contentTop, contentBottom, scroll, maxScroll);
+
+        // 底部提示
+        String hint = "滚轮滚动 | ESC 关闭";
+        int hintW = tr.getWidth(hint);
+        context.drawTextWithShadow(tr, Text.literal(hint), px + pw - 6 - hintW, py + ph - 11, COLOR_TEXT_DIM);
     }
 
-    @Unique
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        // amount > 0 向上滚（内容下移），< 0 向下滚（内容上移）
+        if (amount == 0) return false;
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) return false;
+        int delta = amount > 0 ? -SCROLL_STEP : SCROLL_STEP;
+        int next = Math.max(0, Math.min(maxScroll, getCurrentScroll() + delta));
+        setCurrentScroll(next);
+        return true;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 子标签点击
+        int subTabY = panelY + 24;
+        if (mouseY >= subTabY && mouseY <= subTabY + SUBTAB_H) {
+            int sx = panelX + 6;
+            for (int i = 0; i < 3; i++) {
+                if (mouseX >= sx && mouseX <= sx + SUBTAB_W) {
+                    if (currentSubTab != i) {
+                        currentSubTab = i;
+                        setCurrentScroll(0);
+                    }
+                    return true;
+                }
+                sx += SUBTAB_W + 2;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean shouldPause() {
+        return false;
+    }
+
+    // ===================== 滚动状态 =====================
+
+    private int getCurrentScroll() {
+        return switch (currentSubTab) {
+            case 0 -> scrollBasic;
+            case 1 -> scrollZombie;
+            default -> scrollGiant;
+        };
+    }
+
+    private void setCurrentScroll(int v) {
+        switch (currentSubTab) {
+            case 0 -> scrollBasic = v;
+            case 1 -> scrollZombie = v;
+            default -> scrollGiant = v;
+        }
+    }
+
+    private int getMaxScroll() {
+        int measuredHeight = measurePage(currentSubTab);
+        int visibleH = (panelY + PANEL_H - 3) - (panelY + 24 + SUBTAB_H + 3);
+        return Math.max(0, measuredHeight - visibleH);
+    }
+
+    // ===================== 内容高度测量 =====================
+
     private int measurePage(int sub) {
         return switch (sub) {
             case 0 -> measureBasic();
@@ -308,7 +221,6 @@ public abstract class InventoryScreenMixin {
         };
     }
 
-    @Unique
     private int measureBasic() {
         int h = 34 + 2;     // 天数卡片
         h += 20 + 2;        // 智能度卡片
@@ -317,7 +229,6 @@ public abstract class InventoryScreenMixin {
         return h;
     }
 
-    @Unique
     private int measureZombie() {
         int h = 58 + 2;     // 属性卡片
         h += 46 + 2;        // 战斗能力卡片
@@ -325,16 +236,13 @@ public abstract class InventoryScreenMixin {
         return h;
     }
 
-    @Unique
     private int measureGiant() {
         int h = 70 + 2;     // 属性卡片
         h += 4 + 11 * 5 + 4; // 掉落物卡片（标题+5行）
         return h;
     }
 
-    @Unique
     private void drawScrollBar(DrawContext ctx, int x, int top, int bottom, int scroll, int maxScroll) {
-        // 轨道
         ctx.fill(x, top, x + SCROLL_BAR_W, bottom, 0x55220A0A);
         if (maxScroll <= 0) return;
         int trackH = bottom - top;
@@ -346,7 +254,6 @@ public abstract class InventoryScreenMixin {
 
     // ===================== 子标签 =====================
 
-    @Unique
     private void renderSubTabs(DrawContext ctx, TextRenderer tr, int px, int subTabY, int mouseX, int mouseY) {
         hoveredSubTab = -1;
         if (mouseY >= subTabY && mouseY <= subTabY + SUBTAB_H) {
@@ -364,7 +271,7 @@ public abstract class InventoryScreenMixin {
         int[] colors = {COLOR_TEXT_HI, COLOR_ZOMBIE, COLOR_GIANT};
         int sx = px + 6;
         for (int i = 0; i < 3; i++) {
-            boolean sel = ScrollState.currentSubTab == i;
+            boolean sel = currentSubTab == i;
             boolean hov = hoveredSubTab == i;
             int bg = sel ? COLOR_BG_SUBTAB_SEL : (hov ? 0xBB1A0A0A : COLOR_BG_SUBTAB);
             int border = sel ? colors[i] : COLOR_BORDER_DIM;
@@ -386,7 +293,6 @@ public abstract class InventoryScreenMixin {
 
     // ===================== 基础信息页 =====================
 
-    @Unique
     private void renderBasicPage(DrawContext ctx, TextRenderer tr, World world,
                                  int cardX, int canvasY, int cardW) {
         int currentDay = StageSystem.getCurrentStage(world);
@@ -400,7 +306,6 @@ public abstract class InventoryScreenMixin {
         int dayCardH = 34;
         drawCard(ctx, cardX, cardY, cardW, dayCardH);
         String dayStr = String.valueOf(currentDay);
-        // 统一 y 坐标，避免三段文字错位
         int dayTextY = cardY + 5;
         ctx.drawTextWithShadow(tr, Text.literal("第"), cardX + 6, dayTextY, COLOR_TEXT_DIM);
         ctx.drawTextWithShadow(tr, Text.literal(dayStr), cardX + 18, dayTextY, COLOR_TEXT_HI);
@@ -436,7 +341,7 @@ public abstract class InventoryScreenMixin {
         int intelW = tr.getWidth(intelText);
         ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 6 - intelW, cardY + 6, intelColors[intelLevel]);
 
-        // AI能力卡片 - 固定高度容纳所有行
+        // AI能力卡片
         cardY += intelCardH + 2;
         int aiCardH = 4 + 11 * 5 + 4;
         drawCard(ctx, cardX, cardY, cardW, aiCardH);
@@ -483,7 +388,6 @@ public abstract class InventoryScreenMixin {
         }
     }
 
-    @Unique
     private String[][] getSurvivalTips(int day, boolean isBloodMoon) {
         if (isBloodMoon) {
             return new String[][]{
@@ -527,7 +431,6 @@ public abstract class InventoryScreenMixin {
 
     // ===================== 僵尸详情页 =====================
 
-    @Unique
     private void renderZombiePage(DrawContext ctx, TextRenderer tr, World world,
                                   int cardX, int canvasY, int cardW) {
         double health = StageSystem.getZombieHealth(world);
@@ -583,7 +486,7 @@ public abstract class InventoryScreenMixin {
         int reinColor = reinChance > 0 ? COLOR_DANGER : COLOR_TEXT_DIM;
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "呼叫增援", reinStr, "", reinColor);
 
-        // 加成状态卡片 - 固定高度容纳所有行
+        // 加成状态卡片
         cardY += combatCardH + 2;
         int buffCardH = 4 + 11 * 3 + 4;
         drawCard(ctx, cardX, cardY, cardW, buffCardH);
@@ -603,7 +506,6 @@ public abstract class InventoryScreenMixin {
 
     // ===================== 巨型僵尸详情页 =====================
 
-    @Unique
     private void renderGiantPage(DrawContext ctx, TextRenderer tr, World world,
                                  int cardX, int canvasY, int cardW) {
         double health = StageSystem.getGiantZombieHealth(world);
@@ -616,7 +518,6 @@ public abstract class InventoryScreenMixin {
         // 属性卡片
         int attrCardH = 70;
         drawCard(ctx, cardX, cardY, cardW, attrCardH);
-        // 标题和副标题 y 坐标统一，避免错位
         int titleY = cardY + 4;
         ctx.drawTextWithShadow(tr, Text.literal("▾ 巨型僵尸属性"), cardX + 6, titleY, COLOR_GIANT);
         String scaleText = "(2倍缩放)";
@@ -639,7 +540,7 @@ public abstract class InventoryScreenMixin {
         rowY += 11;
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "防火", "免疫", "", COLOR_TEXT);
 
-        // 掉落物卡片 - 固定高度容纳所有行
+        // 掉落物卡片
         cardY += attrCardH + 2;
         int dropCardH = 4 + 11 * 5 + 4;
         drawCard(ctx, cardX, cardY, cardW, dropCardH);
@@ -659,10 +560,8 @@ public abstract class InventoryScreenMixin {
 
     // ===================== 辅助绘制方法 =====================
 
-    @Unique
     private void drawDetailRow(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                                String label, String value, String extra, int valueColor) {
-        // 统一用 color 参数控制颜色，不使用 § 前缀避免冲突
         ctx.drawTextWithShadow(tr, Text.literal(label), x, y, COLOR_TEXT_DIM);
 
         int valW = tr.getWidth(value);
@@ -671,10 +570,8 @@ public abstract class InventoryScreenMixin {
         int gap = 4;
 
         if (extra.isEmpty()) {
-            // value 右对齐到 w - rightPad
             ctx.drawTextWithShadow(tr, Text.literal(value), x + w - valW - rightPad, y, valueColor);
         } else {
-            // extra 最右对齐，value 在 extra 左侧 gap 间距处
             int extraX = x + w - extraW - rightPad;
             int valX = extraX - gap - valW;
             ctx.drawTextWithShadow(tr, Text.literal(value), valX, y, valueColor);
@@ -682,7 +579,6 @@ public abstract class InventoryScreenMixin {
         }
     }
 
-    @Unique
     private int getProgressColor(double progress) {
         if (progress < 0.25) return 0xFF33AA33;
         if (progress < 0.50) return 0xFFCCAA22;
@@ -690,7 +586,6 @@ public abstract class InventoryScreenMixin {
         return 0xFFFF2222;
     }
 
-    @Unique
     private String getStageTip(int day) {
         if (day <= 10) return "初期 - 收集资源，建立基地";
         if (day <= 30) return "发展 - 加固防御，准备迎战";
@@ -699,7 +594,6 @@ public abstract class InventoryScreenMixin {
         return "最终 - 末日降临，拼死生存！";
     }
 
-    @Unique
     private void drawCard(DrawContext ctx, int x, int y, int w, int h) {
         ctx.fill(x, y, x + w, y + h, COLOR_BG_CARD);
         ctx.fill(x, y, x + w, y + 1, 0x33FF4444);
@@ -707,7 +601,6 @@ public abstract class InventoryScreenMixin {
         ctx.fill(x, y, x + 1, y + h, 0x22FF3333);
     }
 
-    @Unique
     private void drawBorder(DrawContext ctx, int x, int y, int w, int h, int color, int thickness) {
         ctx.fill(x, y, x + w, y + thickness, color);
         ctx.fill(x, y + h - thickness, x + w, y + h, color);
@@ -715,7 +608,6 @@ public abstract class InventoryScreenMixin {
         ctx.fill(x + w - thickness, y, x + w, y + h, color);
     }
 
-    @Unique
     private void drawCornerDecor(DrawContext ctx, int x, int y, int w, int h) {
         int s = 6;
         ctx.fill(x, y, x + s, y + 1, COLOR_ACCENT);
