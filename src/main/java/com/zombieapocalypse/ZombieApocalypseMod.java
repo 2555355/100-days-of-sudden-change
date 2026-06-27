@@ -118,8 +118,9 @@ public class ZombieApocalypseMod implements ModInitializer {
             double spawnChance;
             int spawnCount;
             if (isDay) {
-                spawnChance = (0.4 + stageProgress * 0.4) * bloodMoonMult;
-                spawnCount = (int) ((2 + stage / 10) * bloodMoonMult);
+                // 白天少刷：概率和数量大幅降低
+                spawnChance = (0.15 + stageProgress * 0.2) * bloodMoonMult;
+                spawnCount = (int) Math.max(1, (1 + stage / 25) * bloodMoonMult);
             } else {
                 spawnChance = (0.6 + stageProgress * 0.3) * bloodMoonMult;
                 spawnCount = (int) ((3 + stage / 8) * bloodMoonMult);
