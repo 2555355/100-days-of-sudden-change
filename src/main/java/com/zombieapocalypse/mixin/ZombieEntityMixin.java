@@ -7,9 +7,13 @@ import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -117,7 +121,7 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
     }
 
     /**
-     * 每tick更新僵尸属性 (基于阶段)
+     * 每tick更新僵尸属性 (基于阶段 + 夜晚/血月/低血量加成)
      */
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
@@ -128,12 +132,14 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
     /**
      * 根据阶段更新僵尸属性
      * 血量: 20-400, 攻击: 3-15, 速度: 0.23-0.35, 护甲: 2-12
+     * 速度额外受夜晚/血月/低血量狂暴影响
+     * 攻击额外受血月影响
+     * 追踪范围随智能度增长
      */
     @Unique
     private void updateZombieAttributes() {
         World world = this.getWorld();
         if (world == null) return;
-        // 死了就不更新，避免复活僵尸
         if (this.isDead()) return;
 
         double health = StageSystem.getZombieHealth(world);
@@ -147,29 +153,79 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
 
         var healthAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null && healthAttr.getBaseValue() != health) {
-            // 按比例恢复血量，避免僵尸长期残血
             double oldMax = healthAttr.getBaseValue();
             float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
             this.setHealth(Math.min((float) health, (float) health * healthRatio));
         }
 
+        // 攻击力: 基础 * 血月倍率
+        double finalAttack = attack * StageSystem.getAttackMultiplier(world);
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
-        if (attackAttr != null && attackAttr.getBaseValue() != attack) {
-            attackAttr.setBaseValue(attack);
+        if (attackAttr != null && attackAttr.getBaseValue() != finalAttack) {
+            attackAttr.setBaseValue(finalAttack);
         }
 
+        // 速度: 基础 * 夜晚/血月/低血量倍率
+        float healthRatio = healthAttr != null && healthAttr.getBaseValue() > 0
+                ? this.getHealth() / (float) healthAttr.getBaseValue() : 1.0f;
+        double finalSpeed = speed * StageSystem.getSpeedMultiplier(world, healthRatio);
         var speedAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
         if (speedAttr != null) {
             double currentSpeed = speedAttr.getBaseValue();
-            if (Math.abs(currentSpeed - speed) > 0.001) {
-                speedAttr.setBaseValue(speed);
+            if (Math.abs(currentSpeed - finalSpeed) > 0.001) {
+                speedAttr.setBaseValue(finalSpeed);
             }
         }
 
         var armorAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ARMOR);
         if (armorAttr != null && armorAttr.getBaseValue() != armor) {
             armorAttr.setBaseValue(armor);
+        }
+
+        // 动态追踪范围 (随智能度增长)
+        int followRange = StageSystem.getFollowRange(world);
+        var followAttr = this.getAttributeInstance(EntityAttributes.GENERIC_FOLLOW_RANGE);
+        if (followAttr != null && followAttr.getBaseValue() != followRange) {
+            followAttr.setBaseValue(followRange);
+        }
+    }
+
+    /**
+     * 受到伤害时呼叫增援 (高智能度触发)
+     * 在附近生成1-2只僵尸
+     */
+    @Inject(method = "damage", at = @At("TAIL"))
+    private void onDamaged(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        if (this.getWorld().isClient) return;
+        if (!cir.getReturnValue()) return;
+        if (this.isDead()) return;
+
+        World world = this.getWorld();
+        double reinforceChance = StageSystem.getReinforcementChance(world);
+        if (world.getRandom().nextDouble() >= reinforceChance) return;
+
+        // 在附近生成增援僵尸
+        if (world instanceof ServerWorld serverWorld) {
+            int count = 1 + world.getRandom().nextInt(2);
+            for (int i = 0; i < count; i++) {
+                double angle = world.getRandom().nextDouble() * Math.PI * 2;
+                double distance = 8 + world.getRandom().nextDouble() * 12;
+                int x = (int) (this.getX() + Math.cos(angle) * distance);
+                int z = (int) (this.getZ() + Math.sin(angle) * distance);
+                BlockPos pos = new BlockPos(x, this.getBlockY() + world.getRandom().nextInt(3) - 1, z);
+
+                if (pos.getY() < world.getBottomY() || pos.getY() > world.getTopY()) continue;
+                if (!world.getBlockState(pos.down()).isSolidBlock(world, pos.down())) continue;
+                if (!world.getBlockState(pos).isAir() || !world.getBlockState(pos.up()).isAir()) continue;
+
+                ZombieEntity reinforcement = new ZombieEntity(EntityType.ZOMBIE, serverWorld);
+                reinforcement.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                        world.getRandom().nextFloat() * 360.0f, 0.0f);
+                reinforcement.initialize(serverWorld, serverWorld.getLocalDifficulty(pos),
+                        SpawnReason.REINFORCEMENT, null, null);
+                serverWorld.spawnEntity(reinforcement);
+            }
         }
     }
 

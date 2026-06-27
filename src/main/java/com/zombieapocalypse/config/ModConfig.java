@@ -105,6 +105,22 @@ public class ModConfig {
     /** 各智力等级方块库存容量 */
     public static int[] INTELLIGENCE_BLOCK_INVENTORY = {2, 3, 4, 5, 6, 8};
 
+    // ========== AI增强 ==========
+    /** 低血量狂暴阈值 (血量低于此比例时触发) */
+    public static float ENRAGE_HEALTH_THRESHOLD = 0.3f;
+    /** 低血量狂暴速度倍率 */
+    public static double ENRAGE_SPEED_MULTIPLIER = 1.5;
+    /** 夜晚速度加成倍率 */
+    public static double NIGHT_SPEED_BONUS = 1.15;
+    /** 血月速度加成倍率 */
+    public static double BLOOD_MOON_SPEED_BONUS = 1.3;
+    /** 血月攻击加成倍率 */
+    public static double BLOOD_MOON_ATTACK_BONUS = 1.2;
+    /** 各智力等级追踪范围 */
+    public static int[] INTELLIGENCE_FOLLOW_RANGE = {48, 64, 80, 96, 128, 160};
+    /** 各智力等级呼叫增援概率 */
+    public static double[] INTELLIGENCE_REINFORCEMENT_CHANCE = {0.0, 0.0, 0.05, 0.10, 0.15, 0.25};
+
     // ========== 难度加成 ==========
     /** 简单难度属性倍率 */
     public static double EASY_MULTIPLIER = 0.7;

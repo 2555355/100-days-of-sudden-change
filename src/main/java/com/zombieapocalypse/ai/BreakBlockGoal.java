@@ -65,6 +65,10 @@ public class BreakBlockGoal extends Goal {
         Direction facing = this.mob.getHorizontalFacing();
         Direction towardPlayer = getDirectionToward(mobPos, targetPos);
 
+        // 第一优先级：扫描门、玻璃、活板门 (更智能的突破)
+        if (scanPriorityBlocks(world, mobPos, facing, towardPlayer)) return true;
+
+        // 第二优先级：常规方块
         for (int y = 0; y <= 2; y++) {
             if (checkAndSetBlock(world, mobPos.offset(facing).up(y))) return true;
         }
@@ -103,6 +107,39 @@ public class BreakBlockGoal extends Goal {
         return false;
     }
 
+    /**
+     * 优先扫描门、玻璃、活板门等可快速突破的方块
+     */
+    private boolean scanPriorityBlocks(World world, BlockPos mobPos, Direction facing, Direction towardPlayer) {
+        // 检查朝向方向1-3格内的门/玻璃
+        for (int dist = 1; dist <= 3; dist++) {
+            for (int y = 0; y <= 2; y++) {
+                BlockPos pos = mobPos.offset(facing, dist).up(y);
+                if (isPriorityBlockAt(world, pos)) {
+                    this.targetBlock = pos.toImmutable();
+                    return true;
+                }
+            }
+            if (towardPlayer != facing) {
+                for (int y = 0; y <= 2; y++) {
+                    BlockPos pos = mobPos.offset(towardPlayer, dist).up(y);
+                    if (isPriorityBlockAt(world, pos)) {
+                        this.targetBlock = pos.toImmutable();
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isPriorityBlockAt(World world, BlockPos pos) {
+        if (pos.equals(this.mob.getBlockPos())) return false;
+        BlockState state = world.getBlockState(pos);
+        if (state.isAir()) return false;
+        return isPriorityBlock(state);
+    }
+
     private Direction getDirectionToward(BlockPos from, BlockPos to) {
         int dx = to.getX() - from.getX();
         int dz = to.getZ() - from.getZ();
@@ -119,6 +156,16 @@ public class BreakBlockGoal extends Goal {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 是否为优先破坏方块 (门、玻璃、活板门)
+     */
+    private boolean isPriorityBlock(BlockState state) {
+        return state.isIn(net.minecraft.registry.tag.BlockTags.DOORS)
+                || state.isIn(net.minecraft.registry.tag.BlockTags.WOODEN_TRAPDOORS)
+                || state.getBlock() instanceof net.minecraft.block.GlassBlock
+                || state.getBlock() instanceof net.minecraft.block.StainedGlassBlock;
     }
 
     /**

@@ -153,6 +153,47 @@ public class StageSystem {
     }
 
     /**
+     * 获取当前智能度下的追踪范围
+     */
+    public static int getFollowRange(World world) {
+        return ModConfig.INTELLIGENCE_FOLLOW_RANGE[getIntelligenceLevel(world)];
+    }
+
+    /**
+     * 获取当前智能度下的呼叫增援概率
+     */
+    public static double getReinforcementChance(World world) {
+        return ModConfig.INTELLIGENCE_REINFORCEMENT_CHANCE[getIntelligenceLevel(world)];
+    }
+
+    /**
+     * 获取当前速度倍率 (综合夜晚/血月/低血量)
+     */
+    public static double getSpeedMultiplier(World world, float healthRatio) {
+        double mult = 1.0;
+        // 夜晚速度加成
+        if (!world.isDay()) {
+            mult *= ModConfig.NIGHT_SPEED_BONUS;
+        }
+        // 血月速度加成
+        if (isBloodMoon(world)) {
+            mult *= ModConfig.BLOOD_MOON_SPEED_BONUS;
+        }
+        // 低血量狂暴
+        if (healthRatio > 0 && healthRatio < ModConfig.ENRAGE_HEALTH_THRESHOLD) {
+            mult *= ModConfig.ENRAGE_SPEED_MULTIPLIER;
+        }
+        return mult;
+    }
+
+    /**
+     * 获取当前攻击力倍率 (血月加成)
+     */
+    public static double getAttackMultiplier(World world) {
+        return isBloodMoon(world) ? ModConfig.BLOOD_MOON_ATTACK_BONUS : 1.0;
+    }
+
+    /**
      * 获取阶段显示名称
      */
     public static String getStageDisplayName(World world) {

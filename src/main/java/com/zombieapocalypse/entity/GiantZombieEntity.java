@@ -71,42 +71,55 @@ public class GiantZombieEntity extends ZombieEntity {
 
     /**
      * 根据当前阶段更新巨型僵尸属性
+     * 速度额外受夜晚/血月/低血量狂暴影响
+     * 攻击额外受血月影响
+     * 追踪范围随智能度增长
      */
     private void updateAttributes() {
         World world = this.getWorld();
         if (world == null) return;
-        // 死了就不更新，避免复活
         if (this.isDead()) return;
 
         double health = StageSystem.getGiantZombieHealth(world);
         double attack = StageSystem.getGiantZombieAttack(world);
         double speed = 0.20 + (StageSystem.getStageProgress(world) * 0.10);
 
-        // 应用难度加成
         double difficultyMult = ModConfig.getDifficultyMultiplier(world.getDifficulty());
         health *= difficultyMult;
         attack *= difficultyMult;
 
         var healthAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (healthAttr != null && healthAttr.getBaseValue() != health) {
-            // 按比例恢复血量，死了就不复活
             double oldMax = healthAttr.getBaseValue();
             float healthRatio = oldMax > 0 ? this.getHealth() / (float) oldMax : 1.0f;
             healthAttr.setBaseValue(health);
             this.setHealth(Math.min((float) health, (float) health * healthRatio));
         }
 
+        // 攻击力: 基础 * 血月倍率
+        double finalAttack = attack * StageSystem.getAttackMultiplier(world);
         var attackAttr = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
-        if (attackAttr != null && attackAttr.getBaseValue() != attack) {
-            attackAttr.setBaseValue(attack);
+        if (attackAttr != null && attackAttr.getBaseValue() != finalAttack) {
+            attackAttr.setBaseValue(finalAttack);
         }
 
+        // 速度: 基础 * 夜晚/血月/低血量倍率
+        float healthRatio = healthAttr != null && healthAttr.getBaseValue() > 0
+                ? this.getHealth() / (float) healthAttr.getBaseValue() : 1.0f;
+        double finalSpeed = speed * StageSystem.getSpeedMultiplier(world, healthRatio);
         var speedAttr = this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
         if (speedAttr != null) {
             double currentSpeed = speedAttr.getBaseValue();
-            if (Math.abs(currentSpeed - speed) > 0.001) {
-                speedAttr.setBaseValue(speed);
+            if (Math.abs(currentSpeed - finalSpeed) > 0.001) {
+                speedAttr.setBaseValue(finalSpeed);
             }
+        }
+
+        // 动态追踪范围
+        int followRange = StageSystem.getFollowRange(world);
+        var followAttr = this.getAttributeInstance(EntityAttributes.GENERIC_FOLLOW_RANGE);
+        if (followAttr != null && followAttr.getBaseValue() != followRange) {
+            followAttr.setBaseValue(followRange);
         }
     }
 
