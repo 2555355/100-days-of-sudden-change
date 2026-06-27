@@ -39,6 +39,9 @@ public class BreakBlockGoal extends Goal {
     public boolean canStart() {
         if (!ModConfig.ZOMBIE_CAN_BREAK_BLOCKS) return false;
 
+        // 第20天后才能破坏方块
+        if (StageSystem.getCurrentDay(this.mob.getWorld()) < 20) return false;
+
         BlockPos currentPos = this.mob.getBlockPos();
         if (currentPos.equals(this.lastMobPos)) {
             stuckTicks++;

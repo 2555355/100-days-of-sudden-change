@@ -33,6 +33,9 @@ public class BuildBlockGoal extends Goal {
             return false;
         }
 
+        // 第20天后才能搭方块
+        if (StageSystem.getCurrentDay(this.mob.getWorld()) < 20) return false;
+
         // 必须有收集到的方块材料才能搭
         if (!(this.mob instanceof IBlockCollector collector) || !collector.hasCollectedBlock()) {
             return false;
