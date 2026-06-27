@@ -90,6 +90,9 @@ public abstract class InventoryScreenMixin {
             context.fill(0, 0, sw, sh / 4, 0x44000000);
             int panelY = this.y + getTabOffset();
             renderDayPanel(context, mouseX, mouseY, this.x, panelY);
+            // 关键：HEAD cancel 会跳过整个 render 方法体，TAIL 注入也不会执行。
+            // 必须在 cancel 之前绘制标签按钮，否则用户无法切回生存背包。
+            renderTabButtons(context, mouseX, mouseY);
             ci.cancel();
         }
     }
@@ -97,7 +100,11 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "render", at = @At("TAIL"))
     private void onRenderTail(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!isInventoryScreen()) return;
-        renderTabButtons(context, mouseX, mouseY);
+        // 仅在生存背包（原版渲染未被取消）时绘制标签；
+        // 末日情报模式下标签已在 HEAD 的 cancel 前绘制。
+        if (ScrollState.currentTab != 0) {
+            renderTabButtons(context, mouseX, mouseY);
+        }
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
