@@ -431,7 +431,7 @@ public abstract class InventoryScreenMixin {
         drawCard(ctx, cardX, cardY, cardW, intelCardH);
         ctx.drawTextWithShadow(tr, Text.literal("智能度"), cardX + 6, cardY + 6, COLOR_TEXT_DIM);
         String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
-        int[] intelColors = {0xFF33AA33, 0xFFFFAA00, 0xFFFFCC6622, 0xFFFF3333, 0xFFFF0000, 0xFFFF0000};
+        int[] intelColors = {0xFF33AA33, 0xFFFFAA00, 0xFFCC6622, 0xFFFF3333, 0xFFFF0000, 0xFFFF0000};
         String intelText = "Lv" + intelLevel + " " + intelNames[intelLevel];
         int intelW = tr.getWidth(intelText);
         ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 6 - intelW, cardY + 6, intelColors[intelLevel]);
@@ -505,13 +505,13 @@ public abstract class InventoryScreenMixin {
             return new String[][]{
                     {"加固防御，使用铁制装备", "FFFFAA00"},
                     {"准备弓箭应对远程威胁", "FFFFAA00"},
-                    {"僵尸开始变强，注意血量", "FFFFCC6622"},
+                    {"僵尸开始变强，注意血量", "FFCC6622"},
                     {"第20/30天有血月", "FFFF3333"}
             };
         }
         if (day <= 50) {
             return new String[][]{
-                    {"携带钻石装备出门", "FFFFCC6622"},
+                    {"携带钻石装备出门", "FFCC6622"},
                     {"僵尸可破坏方块，加固墙体", "FFFF3333"},
                     {"巨型僵尸出现，保持距离", "FFFF3333"},
                     {"第40/50天血月极其危险", "FFFF3333"}
