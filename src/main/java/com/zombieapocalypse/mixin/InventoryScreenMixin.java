@@ -1,5 +1,6 @@
 package com.zombieapocalypse.mixin;
 
+import com.zombieapocalypse.client.ScrollState;
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
 import net.minecraft.client.MinecraftClient;
@@ -53,20 +54,10 @@ public abstract class InventoryScreenMixin {
     @Unique private static final int PANEL_H = 166;
     @Unique private static final int SUBTAB_W = 52;
     @Unique private static final int SUBTAB_H = 14;
-    @Unique private static final int SCROLL_STEP = 12;
     @Unique private static final int SCROLL_BAR_W = 3;
 
-    @Unique private int currentTab = 1;      // 0=末日情报, 1=生存背包
-    @Unique private int currentSubTab = 0;   // 0=基础, 1=僵尸, 2=巨型僵尸
     @Unique private int hoveredTab = -1;
     @Unique private int hoveredSubTab = -1;
-
-    // 每个子页面独立的滚动偏移
-    @Unique private int scrollBasic = 0;
-    @Unique private int scrollZombie = 0;
-    @Unique private int scrollGiant = 0;
-    // 当前帧计算出的内容高度，用于限制滚动范围
-    @Unique private int currentContentHeight = 0;
 
     @Unique
     private boolean isInventoryScreen() {
@@ -78,24 +69,6 @@ public abstract class InventoryScreenMixin {
         return TAB_HEIGHT + 3;
     }
 
-    @Unique
-    private int getCurrentScroll() {
-        return switch (currentSubTab) {
-            case 0 -> scrollBasic;
-            case 1 -> scrollZombie;
-            default -> scrollGiant;
-        };
-    }
-
-    @Unique
-    private void setCurrentScroll(int v) {
-        switch (currentSubTab) {
-            case 0 -> scrollBasic = v;
-            case 1 -> scrollZombie = v;
-            default -> scrollGiant = v;
-        }
-    }
-
     @Inject(method = "init", at = @At("TAIL"))
     private void adjustLayout(CallbackInfo ci) {
     }
@@ -103,7 +76,13 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onRenderHead(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!isInventoryScreen()) return;
-        if (currentTab == 0) {
+        // 同步状态给 MouseScrollMixin
+        ScrollState.panelX = this.x;
+        ScrollState.panelY = this.y + getTabOffset();
+        ScrollState.panelW = PANEL_W;
+        ScrollState.panelH = PANEL_H;
+        ScrollState.isActive = true;
+        if (ScrollState.currentTab == 0) {
             MinecraftClient client = MinecraftClient.getInstance();
             int sw = client.getWindow().getScaledWidth();
             int sh = client.getWindow().getScaledHeight();
@@ -129,19 +108,19 @@ public abstract class InventoryScreenMixin {
         if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
             int tab0X = this.x + 4;
             if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) {
-                currentTab = 1;
+                ScrollState.currentTab = 1;
                 cir.setReturnValue(true);
                 return;
             }
             int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
             if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) {
-                currentTab = 0;
+                ScrollState.currentTab = 0;
                 cir.setReturnValue(true);
                 return;
             }
         }
         // 末日情报面板区域
-        if (currentTab == 0) {
+        if (ScrollState.currentTab == 0) {
             int panelY = this.y + getTabOffset();
             if (mouseX >= this.x && mouseX <= this.x + PANEL_W &&
                     mouseY >= panelY && mouseY <= panelY + PANEL_H) {
@@ -150,19 +129,28 @@ public abstract class InventoryScreenMixin {
                 if (mouseY >= subTabY && mouseY <= subTabY + SUBTAB_H) {
                     int subTab0X = this.x + 6;
                     if (mouseX >= subTab0X && mouseX <= subTab0X + SUBTAB_W) {
-                        if (currentSubTab != 0) { currentSubTab = 0; scrollBasic = 0; }
+                        if (ScrollState.currentSubTab != 0) {
+                            ScrollState.currentSubTab = 0;
+                            ScrollState.scrollBasic = 0;
+                        }
                         cir.setReturnValue(true);
                         return;
                     }
                     int subTab1X = subTab0X + SUBTAB_W + 2;
                     if (mouseX >= subTab1X && mouseX <= subTab1X + SUBTAB_W) {
-                        if (currentSubTab != 1) { currentSubTab = 1; scrollZombie = 0; }
+                        if (ScrollState.currentSubTab != 1) {
+                            ScrollState.currentSubTab = 1;
+                            ScrollState.scrollZombie = 0;
+                        }
                         cir.setReturnValue(true);
                         return;
                     }
                     int subTab2X = subTab1X + SUBTAB_W + 2;
                     if (mouseX >= subTab2X && mouseX <= subTab2X + SUBTAB_W) {
-                        if (currentSubTab != 2) { currentSubTab = 2; scrollGiant = 0; }
+                        if (ScrollState.currentSubTab != 2) {
+                            ScrollState.currentSubTab = 2;
+                            ScrollState.scrollGiant = 0;
+                        }
                         cir.setReturnValue(true);
                         return;
                     }
@@ -170,33 +158,6 @@ public abstract class InventoryScreenMixin {
                 cir.setReturnValue(true);
             }
         }
-    }
-
-    // GLFW 键码
-    @Unique private static final int KEY_UP = 265;
-    @Unique private static final int KEY_DOWN = 264;
-    @Unique private static final int KEY_PAGE_UP = 266;
-    @Unique private static final int KEY_PAGE_DOWN = 267;
-
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void handleScrollKey(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (!isInventoryScreen()) return;
-        if (currentTab != 0) return;
-
-        boolean up = keyCode == KEY_UP || keyCode == KEY_PAGE_UP;
-        boolean down = keyCode == KEY_DOWN || keyCode == KEY_PAGE_DOWN;
-        if (!up && !down) return;
-
-        int visibleH = PANEL_H - 41 - 4; // 内容可视高度
-        int maxScroll = Math.max(0, currentContentHeight - visibleH);
-        if (maxScroll <= 0) return;
-
-        int step = (keyCode == KEY_PAGE_UP || keyCode == KEY_PAGE_DOWN) ? visibleH : SCROLL_STEP;
-        int delta = up ? -step : step;
-        int next = getCurrentScroll() + delta;
-        next = Math.max(0, Math.min(maxScroll, next));
-        setCurrentScroll(next);
-        cir.setReturnValue(true);
     }
 
     // ===================== 主标签按钮 =====================
@@ -213,9 +174,9 @@ public abstract class InventoryScreenMixin {
         }
 
         int tab0X = this.x + 4;
-        drawTab(context, tab0X, tabY, "⛏", "生存背包", currentTab == 1, hoveredTab == 1);
+        drawTab(context, tab0X, tabY, "⛏", "生存背包", ScrollState.currentTab == 1, hoveredTab == 1);
         int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
-        drawTab(context, tab1X, tabY, "☠", "末日情报", currentTab == 0, hoveredTab == 0);
+        drawTab(context, tab1X, tabY, "☠", "末日情报", ScrollState.currentTab == 0, hoveredTab == 0);
     }
 
     @Unique
@@ -306,18 +267,21 @@ public abstract class InventoryScreenMixin {
         int cardX = px + 6;
 
         // 第一遍：测量内容高度（不影响滚动状态）
-        int measuredHeight = measurePage(currentSubTab);
-        currentContentHeight = measuredHeight;
+        int measuredHeight = measurePage(ScrollState.currentSubTab);
+        ScrollState.currentContentHeight = measuredHeight;
+        // 同步可视区坐标给 MouseScrollMixin
+        ScrollState.contentTop = contentTop;
+        ScrollState.contentBottom = contentBottom;
 
         // 限制滚动范围
         int maxScroll = Math.max(0, measuredHeight - visibleH);
-        if (getCurrentScroll() > maxScroll) setCurrentScroll(maxScroll);
-        int scroll = getCurrentScroll();
+        if (ScrollState.getCurrentScroll() > maxScroll) ScrollState.setCurrentScroll(maxScroll);
+        int scroll = ScrollState.getCurrentScroll();
 
         // 启用裁剪绘制内容
         ctx.enableScissor(cardX - 1, contentTop, cardX + cardW + 1, contentBottom);
         int canvasY = contentTop - scroll;
-        switch (currentSubTab) {
+        switch (ScrollState.currentSubTab) {
             case 0 -> renderBasicPage(ctx, tr, world, cardX, canvasY, cardW);
             case 1 -> renderZombiePage(ctx, tr, world, cardX, canvasY, cardW);
             case 2 -> renderGiantPage(ctx, tr, world, cardX, canvasY, cardW);
@@ -342,6 +306,7 @@ public abstract class InventoryScreenMixin {
         int h = 34 + 2;     // 天数卡片
         h += 20 + 2;        // 智能度卡片
         h += 4 + 11 * 5 + 4; // AI能力卡片（标题+5行）
+        h += 4 + 11 * 4 + 4; // 生存提示卡片（标题+4行）
         return h;
     }
 
@@ -392,7 +357,7 @@ public abstract class InventoryScreenMixin {
         int[] colors = {COLOR_TEXT_HI, COLOR_ZOMBIE, COLOR_GIANT};
         int sx = px + 6;
         for (int i = 0; i < 3; i++) {
-            boolean sel = currentSubTab == i;
+            boolean sel = ScrollState.currentSubTab == i;
             boolean hov = hoveredSubTab == i;
             int bg = sel ? COLOR_BG_SUBTAB_SEL : (hov ? 0xBB1A0A0A : COLOR_BG_SUBTAB);
             int border = sel ? colors[i] : COLOR_BORDER_DIM;
@@ -492,6 +457,61 @@ public abstract class InventoryScreenMixin {
         aiY += 11;
         ctx.drawTextWithShadow(tr, Text.literal(getStageTip(currentDay)),
                 cardX + 6, aiY, COLOR_TEXT);
+
+        // 生存提示卡片
+        cardY += aiCardH + 2;
+        int tipCardH = 4 + 11 * 4 + 4;
+        drawCard(ctx, cardX, cardY, cardW, tipCardH);
+        ctx.drawTextWithShadow(tr, Text.literal("§b★ 生存提示"), cardX + 6, cardY + 4, 0xFF66DDFF);
+
+        int tipY = cardY + 16;
+        String[] tips = getSurvivalTips(currentDay, isBloodMoon);
+        for (String tip : tips) {
+            ctx.drawTextWithShadow(tr, Text.literal(tip), cardX + 6, tipY, COLOR_TEXT);
+            tipY += 11;
+        }
+    }
+
+    @Unique
+    private String[] getSurvivalTips(int day, boolean isBloodMoon) {
+        if (isBloodMoon) {
+            return new String[]{
+                    "§4血月期间怪物刷新翻倍！",
+                    "§c加固门窗，准备死守！",
+                    "§c巨型僵尸频繁出没，注意远程",
+                    "§e保留火把与高墙防御"
+            };
+        }
+        if (day <= 10) {
+            return new String[]{
+                    "§a收集木头与食物，建立庇护所",
+                    "§a制作石制武器与护甲",
+                    "§7夜晚尽量待在室内",
+                    "§e留意第10天的血月！"
+            };
+        }
+        if (day <= 30) {
+            return new String[]{
+                    "§e加固防御，使用铁制装备",
+                    "§e准备弓箭应对远程威胁",
+                    "§6僵尸开始变强，注意血量",
+                    "§c第20/30天有血月"
+            };
+        }
+        if (day <= 50) {
+            return new String[]{
+                    "§6携带钻石装备出门",
+                    "§c僵尸可破坏方块，加固墙体",
+                    "§4巨型僵尸出现，保持距离",
+                    "§4第40/50天血月极其危险"
+            };
+        }
+        return new String[]{
+                "§4末日降临，谨慎行动",
+                "§4巨型僵尸群出没，备足药水",
+                "§4高墙+护城河是最佳防御",
+                "§4第60/70/80/90/100天均为血月"
+        };
     }
 
     // ===================== 僵尸详情页 =====================
