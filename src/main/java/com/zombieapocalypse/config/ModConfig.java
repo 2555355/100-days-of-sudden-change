@@ -58,8 +58,8 @@ public class ModConfig {
     /** 巨型僵尸最高攻击力 */
     public static double GIANT_ZOMBIE_MAX_ATTACK = 25.0;
 
-    /** 巨型僵尸基础生成概率 (第1天) */
-    public static double GIANT_ZOMBIE_BASE_CHANCE = 0.02;
+    /** 巨型僵尸基础生成概率 (第40天起) */
+    public static double GIANT_ZOMBIE_BASE_CHANCE = 0.05;
 
     /** 巨型僵尸最高生成概率 (第100天) */
     public static double GIANT_ZOMBIE_MAX_CHANCE = 0.30;
