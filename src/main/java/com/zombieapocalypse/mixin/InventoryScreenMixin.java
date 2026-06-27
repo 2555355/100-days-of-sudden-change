@@ -54,10 +54,14 @@ public abstract class InventoryScreenMixin {
         return (Object) this instanceof InventoryScreen;
     }
 
+    @Unique
+    private int getTabOffset() {
+        return TAB_HEIGHT + 3;
+    }
+
     @Inject(method = "init", at = @At("TAIL"))
     private void adjustLayout(CallbackInfo ci) {
-        if (!isInventoryScreen()) return;
-        this.y += TAB_HEIGHT + 3;
+        // 不修改 this.y，避免配方书按钮位置错乱
     }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
@@ -70,7 +74,9 @@ public abstract class InventoryScreenMixin {
             // 暗色渐变背景
             context.fill(0, 0, sw, sh, COLOR_BG_DARK);
             context.fill(0, 0, sw, sh / 4, 0x44000000);
-            renderDayPanel(context, mouseX, mouseY);
+            // 面板绘制在标签下方
+            int panelY = this.y + getTabOffset();
+            renderDayPanel(context, mouseX, mouseY, this.x, panelY);
             ci.cancel();
         }
     }
@@ -84,7 +90,8 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void handleTabClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         if (!isInventoryScreen()) return;
-        int tabY = this.y - TAB_HEIGHT - 3;
+        // 标签按钮在 this.y 上方
+        int tabY = this.y - TAB_HEIGHT;
         if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
             int tab0X = this.x + 4;
             if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) {
@@ -99,9 +106,11 @@ public abstract class InventoryScreenMixin {
                 return;
             }
         }
+        // 天数面板区域拦截点击 (面板在标签下方)
         if (currentTab == 0) {
+            int panelY = this.y + getTabOffset();
             if (mouseX >= this.x && mouseX <= this.x + PANEL_W &&
-                    mouseY >= this.y && mouseY <= this.y + PANEL_H) {
+                    mouseY >= panelY && mouseY <= panelY + PANEL_H) {
                 cir.setReturnValue(true);
             }
         }
@@ -111,7 +120,7 @@ public abstract class InventoryScreenMixin {
 
     @Unique
     private void renderTabButtons(DrawContext context, int mouseX, int mouseY) {
-        int tabY = this.y - TAB_HEIGHT - 3;
+        int tabY = this.y - TAB_HEIGHT;
         hoveredTab = -1;
         if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
             int tab0X = this.x + 4;
@@ -178,15 +187,13 @@ public abstract class InventoryScreenMixin {
     // ===================== 天数面板 =====================
 
     @Unique
-    private void renderDayPanel(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderDayPanel(DrawContext ctx, int mouseX, int mouseY, int px, int py) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         World world = client.player.getWorld();
         if (world == null) return;
 
         TextRenderer tr = client.textRenderer;
-        int px = this.x;
-        int py = this.y;
         int pw = PANEL_W;
         int ph = PANEL_H;
         int centerX = px + pw / 2;
