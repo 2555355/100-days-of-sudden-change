@@ -12,29 +12,61 @@ import net.minecraft.world.World;
 import java.util.EnumSet;
 
 /**
- * 僵尸搭方块AI (智能增强版)
- * 搭方块间隔随智能度阶梯递减
+ * 僵尸搭方块AI (强力追击版)
+ * 核心目标: 通过搭方块让僵尸尽可能接近玩家。
+ *
+ * 策略优先级:
+ *   1. 玩家在上方 → 脚下垫高塔式堆叠(可连续搭多格, 无需下方支撑)
+ *   2. 玩家在水平方向 → 朝玩家方向搭天桥(空中搭方块)
+ *   3. 前方/侧面有坑 → 搭桥跨越
+ *
+ * 关键改进:
+ *   - canPlaceAt 放宽: 脚下位置无需下方支撑(僵尸自身踩着)
+ *   - 相邻实体方块即可放置(空气也能搭, 不必下面有支撑)
+ *   - 朝玩家方向(towardPlayer)绝对优先
+ *   - 卡住时立即触发(无需等冷却)
  */
 public class BuildBlockGoal extends Goal {
     private final PathAwareEntity mob;
     private int buildCooldown;
     private BlockPos targetPlacePos;
+    private BlockPos lastMobPos;
+    private int stuckTicks;
 
     public BuildBlockGoal(PathAwareEntity mob) {
         this.mob = mob;
         this.buildCooldown = 0;
+        this.lastMobPos = mob.getBlockPos();
+        this.stuckTicks = 0;
         this.setControls(EnumSet.of(Goal.Control.MOVE, Goal.Control.LOOK));
     }
 
     @Override
     public boolean canStart() {
-        if (buildCooldown > 0) {
-            buildCooldown--;
-            return false;
-        }
-
         // 第20天后才能搭方块
         if (StageSystem.getCurrentDay(this.mob.getWorld()) < 20) return false;
+
+        // 卡住检测
+        BlockPos currentPos = this.mob.getBlockPos();
+        if (currentPos.equals(this.lastMobPos)) {
+            stuckTicks++;
+        } else {
+            stuckTicks = 0;
+            this.lastMobPos = currentPos;
+        }
+
+        // 卡住时无视冷却立即尝试搭(更激进)
+        if (stuckTicks > 15) {
+            LivingEntity t = this.mob.getTarget();
+            if (t != null && t.isAlive()) {
+                if (findPlacePosition(t)) return true;
+            }
+        }
+
+        if (buildCooldown > 0) {
+            buildCooldown -= (stuckTicks > 15) ? 3 : 1;
+            return false;
+        }
 
         // 必须有收集到的方块材料才能搭
         if (!(this.mob instanceof IBlockCollector collector) || !collector.hasCollectedBlock()) {
@@ -49,7 +81,7 @@ public class BuildBlockGoal extends Goal {
 
     /**
      * 寻找需要搭方块的位置
-     * 优先级: 脚下垫高(直接拉近距离) > 朝玩家方向楼梯 > 前方搭桥 > 侧面搭桥
+     * 优先级: 脚下垫高(玩家在上方) > 朝玩家方向搭天桥 > 前方搭桥 > 侧面
      */
     private boolean findPlacePosition(LivingEntity target) {
         World world = this.mob.getWorld();
@@ -59,110 +91,126 @@ public class BuildBlockGoal extends Goal {
         Direction towardPlayer = getDirectionToward(mobPos, targetPos);
 
         int deltaY = targetPos.getY() - mobPos.getY();
-        int distToPlayer = Math.abs(targetPos.getX() - mobPos.getX()) + Math.abs(targetPos.getZ() - mobPos.getZ());
-        boolean closeToPlayer = distToPlayer <= 6;
+        int horizontalDist = Math.max(Math.abs(targetPos.getX() - mobPos.getX()),
+                                       Math.abs(targetPos.getZ() - mobPos.getZ()));
 
-        // ===== 策略1: 玩家在上方 → 爬高(优先脚下垫高直接拉近距离) =====
+        // ===== 策略1: 玩家在上方 → 脚下垫高塔式堆叠 =====
+        // 只要玩家比僵尸高, 就持续在脚下搭方块把自己垫上去
         if (deltaY >= 1) {
-            // 1a. 在脚下搭方块(直接垫高, 最快拉近距离)
+            // 1a. 直接在脚下搭(无需下方支撑, 僵尸自己踩着)
             BlockPos feetPos = mobPos;
-            if (canPlaceAt(world, feetPos)) {
+            if (canPlaceAtFeet(world, feetPos)) {
                 this.targetPlacePos = feetPos.toImmutable();
                 return true;
             }
 
-            // 1b. 朝玩家方向搭楼梯(优先于朝向方向, 更精准追击)
+            // 1b. 朝玩家方向1格搭楼梯(脚下位置)
             BlockPos towardStepPos = mobPos.offset(towardPlayer);
-            if (canPlaceAt(world, towardStepPos)) {
+            if (canPlaceAtFeet(world, towardStepPos)) {
                 this.targetPlacePos = towardStepPos.toImmutable();
                 return true;
             }
-            BlockPos towardStepUpPos = mobPos.offset(towardPlayer).up();
-            if (canPlaceAt(world, towardStepUpPos)) {
-                this.targetPlacePos = towardStepUpPos.toImmutable();
+
+            // 1c. 朝向方向1格搭楼梯
+            BlockPos facingStepPos = mobPos.offset(facing);
+            if (canPlaceAtFeet(world, facingStepPos)) {
+                this.targetPlacePos = facingStepPos.toImmutable();
                 return true;
             }
 
-            // 1c. 朝向方向搭楼梯(备选)
-            BlockPos stepPos = mobPos.offset(facing);
-            if (canPlaceAt(world, stepPos)) {
-                this.targetPlacePos = stepPos.toImmutable();
-                return true;
-            }
-            BlockPos stepUpPos = mobPos.offset(facing).up();
-            if (canPlaceAt(world, stepUpPos)) {
-                this.targetPlacePos = stepUpPos.toImmutable();
-                return true;
-            }
-
-            // 1d. 朝玩家方向2格搭楼梯(更远距离追击)
-            if (closeToPlayer) {
+            // 1d. 朝玩家方向2格搭(更远追击)
+            if (horizontalDist >= 2) {
                 BlockPos toward2Pos = mobPos.offset(towardPlayer, 2);
-                if (canPlaceAt(world, toward2Pos)) {
+                if (canPlaceAtFeet(world, toward2Pos)) {
                     this.targetPlacePos = toward2Pos.toImmutable();
+                    return true;
+                }
+            }
+
+            // 1e. 朝玩家方向1格上方(楼梯第二级)
+            BlockPos towardUpPos = mobPos.offset(towardPlayer).up();
+            if (canPlaceAt(world, towardUpPos)) {
+                this.targetPlacePos = towardUpPos.toImmutable();
+                return true;
+            }
+        }
+
+        // ===== 策略2: 玩家在水平方向(同高或略低) → 朝玩家方向搭天桥 =====
+        if (deltaY <= 0) {
+            // 2a. 朝玩家方向1格脚下(空中搭天桥)
+            BlockPos towardFeetPos = mobPos.offset(towardPlayer);
+            if (canPlaceAtFeet(world, towardFeetPos)) {
+                this.targetPlacePos = towardFeetPos.toImmutable();
+                return true;
+            }
+
+            // 2b. 朝玩家方向2格脚下(远距离搭桥)
+            if (horizontalDist >= 2) {
+                BlockPos toward2FeetPos = mobPos.offset(towardPlayer, 2);
+                if (canPlaceAtFeet(world, toward2FeetPos)) {
+                    this.targetPlacePos = toward2FeetPos.toImmutable();
+                    return true;
+                }
+            }
+
+            // 2c. 朝玩家方向3格脚下(更远搭桥, 玩家距离>3时)
+            if (horizontalDist >= 3) {
+                BlockPos toward3FeetPos = mobPos.offset(towardPlayer, 3);
+                if (canPlaceAtFeet(world, toward3FeetPos)) {
+                    this.targetPlacePos = toward3FeetPos.toImmutable();
                     return true;
                 }
             }
         }
 
-        // ===== 策略2: 前方有坑/空隙 → 搭桥(朝玩家方向优先) =====
+        // ===== 策略3: 前方有坑 → 搭桥(朝玩家方向优先) =====
         BlockPos frontPos = mobPos.offset(towardPlayer);
         BlockPos frontBelowPos = frontPos.down();
         BlockState frontBelowState = world.getBlockState(frontBelowPos);
 
         if (frontBelowState.isAir() || !frontBelowState.isSolidBlock(world, frontBelowPos)) {
             if (canPlaceAt(world, frontBelowPos)) {
-                BlockPos supportPos = frontBelowPos.down();
-                if (world.getBlockState(supportPos).isSolidBlock(world, supportPos)) {
-                    this.targetPlacePos = frontBelowPos.toImmutable();
-                    return true;
-                }
+                this.targetPlacePos = frontBelowPos.toImmutable();
+                return true;
             }
-            if (canPlaceAt(world, frontPos)) {
+            // 前方位置直接搭(空中)
+            if (canPlaceAtFeet(world, frontPos)) {
                 this.targetPlacePos = frontPos.toImmutable();
                 return true;
             }
         }
 
-        // 朝玩家方向2格搭桥
-        BlockPos front2Pos = mobPos.offset(towardPlayer, 2);
-        BlockPos front2BelowPos = front2Pos.down();
+        // 朝玩家方向2格下方搭桥
+        BlockPos front2BelowPos = mobPos.offset(towardPlayer, 2).down();
         if (world.getBlockState(front2BelowPos).isAir() && canPlaceAt(world, front2BelowPos)) {
-            if (world.getBlockState(front2BelowPos.down()).isSolidBlock(world, front2BelowPos.down())) {
-                this.targetPlacePos = front2BelowPos.toImmutable();
-                return true;
-            }
+            this.targetPlacePos = front2BelowPos.toImmutable();
+            return true;
         }
 
-        // 朝向方向搭桥(备选)
+        // ===== 策略4: 朝向方向搭桥(备选) =====
         BlockPos facingPos = mobPos.offset(facing);
         BlockPos facingBelowPos = facingPos.down();
-        BlockState facingBelowState = world.getBlockState(facingBelowPos);
-        if (facingBelowState.isAir() || !facingBelowState.isSolidBlock(world, facingBelowPos)) {
-            if (canPlaceAt(world, facingBelowPos)) {
-                if (world.getBlockState(facingBelowPos.down()).isSolidBlock(world, facingBelowPos.down())) {
-                    this.targetPlacePos = facingBelowPos.toImmutable();
-                    return true;
-                }
-            }
-            if (canPlaceAt(world, facingPos)) {
-                this.targetPlacePos = facingPos.toImmutable();
-                return true;
-            }
+        if (canPlaceAt(world, facingBelowPos)) {
+            this.targetPlacePos = facingBelowPos.toImmutable();
+            return true;
+        }
+        if (canPlaceAtFeet(world, facingPos)) {
+            this.targetPlacePos = facingPos.toImmutable();
+            return true;
         }
 
-        // ===== 策略3: 侧面有坑 → 搭桥(玩家近时才扫) =====
-        if (closeToPlayer) {
-            for (Direction dir : Direction.values()) {
-                if (dir.getAxis().isHorizontal()) {
-                    BlockPos sidePos = mobPos.offset(dir);
-                    BlockPos sideBelowPos = sidePos.down();
-                    if (world.getBlockState(sideBelowPos).isAir() && canPlaceAt(world, sideBelowPos)) {
-                        if (world.getBlockState(sideBelowPos.down()).isSolidBlock(world, sideBelowPos.down())) {
-                            this.targetPlacePos = sideBelowPos.toImmutable();
-                            return true;
-                        }
-                    }
+        // ===== 策略5: 侧面搭桥(最后手段) =====
+        for (Direction dir : Direction.values()) {
+            if (dir.getAxis().isHorizontal()) {
+                BlockPos sidePos = mobPos.offset(dir);
+                BlockPos sideBelowPos = sidePos.down();
+                if (world.getBlockState(sideBelowPos).isAir() && canPlaceAt(world, sideBelowPos)) {
+                    this.targetPlacePos = sideBelowPos.toImmutable();
+                    return true;
+                }
+                if (canPlaceAtFeet(world, sidePos)) {
+                    this.targetPlacePos = sidePos.toImmutable();
+                    return true;
                 }
             }
         }
@@ -184,21 +232,44 @@ public class BuildBlockGoal extends Goal {
     }
 
     /**
-     * 检查是否可以在指定位置放置方块
+     * 检查是否可以在指定位置放置方块(标准: 需要下方支撑)
      */
     private boolean canPlaceAt(World world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
         if (!state.isAir() && !state.isReplaceable()) return false;
 
-        // 检查是否在世界上限内
         if (pos.getY() >= world.getTopY() || pos.getY() <= world.getBottomY()) return false;
 
-        // 必须下方有支撑
         BlockPos belowPos = pos.down();
         BlockState belowState = world.getBlockState(belowPos);
         if (!belowState.isSolidBlock(world, belowPos)) return false;
 
         return true;
+    }
+
+    /**
+     * 脚下垫高专用: 无需下方支撑(僵尸自身踩着或相邻有实体方块即可)
+     * 用于塔式堆叠和空中搭天桥
+     */
+    private boolean canPlaceAtFeet(World world, BlockPos pos) {
+        BlockState state = world.getBlockState(pos);
+        if (!state.isAir() && !state.isReplaceable()) return false;
+
+        if (pos.getY() >= world.getTopY() || pos.getY() <= world.getBottomY()) return false;
+
+        // 检查是否为僵尸自身位置或相邻(僵尸能踩着搭)
+        BlockPos mobPos = this.mob.getBlockPos();
+        if (pos.equals(mobPos)) return true;  // 脚下直接搭
+
+        // 相邻有实体方块即可(包括僵尸脚下、侧面、下方)
+        for (Direction dir : Direction.values()) {
+            BlockPos neighbor = pos.offset(dir);
+            if (neighbor.equals(mobPos)) return true;  // 紧邻僵尸
+            BlockState neighborState = world.getBlockState(neighbor);
+            if (neighborState.isSolidBlock(world, neighbor)) return true;
+        }
+
+        return false;
     }
 
     @Override

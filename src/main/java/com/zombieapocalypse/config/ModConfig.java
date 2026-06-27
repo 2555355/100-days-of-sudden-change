@@ -99,11 +99,11 @@ public class ModConfig {
     /** 各智力等级拆方块间隔 (tick) */
     public static int[] INTELLIGENCE_BREAK_INTERVALS = {30, 20, 14, 9, 5, 3};
     /** 各智力等级搭方块间隔 (tick) */
-    public static int[] INTELLIGENCE_BUILD_INTERVALS = {40, 28, 18, 11, 6, 4};
+    public static int[] INTELLIGENCE_BUILD_INTERVALS = {24, 16, 10, 6, 4, 2};
     /** 各智力等级可破坏方块硬度上限 */
     public static float[] INTELLIGENCE_HARDNESS_LIMITS = {10, 15, 25, 35, 50, 100};
     /** 各智力等级方块库存容量 */
-    public static int[] INTELLIGENCE_BLOCK_INVENTORY = {2, 3, 4, 5, 6, 8};
+    public static int[] INTELLIGENCE_BLOCK_INVENTORY = {4, 6, 8, 12, 16, 24};
 
     // ========== AI增强 ==========
     /** 低血量狂暴阈值 (血量低于此比例时触发) */

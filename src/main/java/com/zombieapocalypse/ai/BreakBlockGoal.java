@@ -95,9 +95,17 @@ public class BreakBlockGoal extends Goal {
             }
         }
 
-        // 第四优先级：头顶/脚下阻挡
-        if (checkAndSetBlock(world, mobPos.up(1))) return true;
-        if (checkAndSetBlock(world, mobPos.up(2))) return true;
+        // 第四优先级：头顶阻挡(玩家在上方时破坏头顶够到玩家)
+        int deltaY = targetPos.getY() - mobPos.getY();
+        if (deltaY >= 1) {
+            // 破坏头顶1-3格, 让僵尸能向上挖到玩家
+            for (int y = 1; y <= 3; y++) {
+                if (checkAndSetBlock(world, mobPos.up(y))) return true;
+            }
+        } else {
+            if (checkAndSetBlock(world, mobPos.up(1))) return true;
+            if (checkAndSetBlock(world, mobPos.up(2))) return true;
+        }
 
         // 第五优先级：侧面(玩家近时才扫, 避免偏离追击)
         if (closeToPlayer) {
@@ -109,17 +117,21 @@ public class BreakBlockGoal extends Goal {
             }
         }
 
-        // 第六优先级：卡住时扩大扫描(前方3格 + 周围2格)
+        // 第六优先级：卡住时扩大扫描(前方3格 + 周围2格 + 头顶更高)
         if (stuckTicks > 25) {
-            for (int y = 0; y <= 2; y++) {
+            for (int y = 0; y <= 3; y++) {
                 if (checkAndSetBlock(world, mobPos.offset(facing, 3).up(y))) return true;
             }
             for (Direction dir : Direction.values()) {
                 if (dir.getAxis().isHorizontal()) {
-                    for (int y = 0; y <= 2; y++) {
+                    for (int y = 0; y <= 3; y++) {
                         if (checkAndSetBlock(world, mobPos.offset(dir, 2).up(y))) return true;
                     }
                 }
+            }
+            // 卡住时也尝试破坏脚下(玩家在下方时)
+            if (deltaY < 0) {
+                if (checkAndSetBlock(world, mobPos.down())) return true;
             }
         }
         return false;
