@@ -478,7 +478,7 @@ public abstract class InventoryScreenMixin {
         int tipY = cardY + 16;
         String[][] tipsData = getSurvivalTips(currentDay, isBloodMoon);
         for (String[] tip : tipsData) {
-            ctx.drawTextWithShadow(tr, Text.literal(tip[0]), cardX + 6, tipY, Integer.parseInt(tip[1], 16));
+            ctx.drawTextWithShadow(tr, Text.literal(tip[0]), cardX + 6, tipY, Integer.parseUnsignedInt(tip[1], 16));
             tipY += 11;
         }
     }
