@@ -3,13 +3,13 @@
   "id": "zombieapocalypse",
   "version": "${version}",
   "name": "惊变100天",
-  "description": "僵尸末日模组 - 只刷新僵尸，僵尸防白天燃烧，AI增强，可破坏方块，阶段增强，巨型僵尸",
+  "description": "僵尸末日生存模组 v2.0 - 100天阶段系统、巨型僵尸、血月事件、智能AI、末日风格UI",
   "authors": [
     "ZombieApocalypse"
   ],
   "contact": {
-    "homepage": "https://github.com/zombieapocalypse",
-    "sources": "https://github.com/zombieapocalypse"
+    "homepage": "https://github.com/2555355/3",
+    "sources": "https://github.com/2555355/3"
   },
   "license": "MIT",
   "icon": "assets/zombieapocalypse/icon.png",
@@ -30,8 +30,5 @@
     "minecraft": "~1.20.1",
     "java": ">=17",
     "fabric-api": "*"
-  },
-  "suggests": {
-    "another-mod": "*"
   }
 }
