@@ -393,16 +393,19 @@ public abstract class InventoryScreenMixin {
         int dayCardH = 34;
         drawCard(ctx, cardX, cardY, cardW, dayCardH);
         String dayStr = String.valueOf(currentDay);
-        ctx.drawTextWithShadow(tr, Text.literal("§f第"), cardX + 6, cardY + 5, COLOR_TEXT_DIM);
-        ctx.drawTextWithShadow(tr, Text.literal("§e§l" + dayStr), cardX + 18, cardY + 4, COLOR_TEXT_HI);
-        ctx.drawTextWithShadow(tr, Text.literal("§f天 §7/" + ModConfig.TOTAL_DAYS),
-                cardX + 18 + tr.getWidth(dayStr) + 2, cardY + 5, COLOR_TEXT_DIM);
+        // 统一 y 坐标，避免三段文字错位
+        int dayTextY = cardY + 5;
+        ctx.drawTextWithShadow(tr, Text.literal("第"), cardX + 6, dayTextY, COLOR_TEXT_DIM);
+        ctx.drawTextWithShadow(tr, Text.literal(dayStr), cardX + 18, dayTextY, COLOR_TEXT_HI);
+        ctx.drawTextWithShadow(tr, Text.literal("天 /" + ModConfig.TOTAL_DAYS),
+                cardX + 18 + tr.getWidth(dayStr) + 2, dayTextY, COLOR_TEXT_DIM);
         // 血月倒计时
         int currentDayRaw = StageSystem.getCurrentDay(world);
         int nextBM = ((currentDayRaw / ModConfig.BLOOD_MOON_INTERVAL) + 1) * ModConfig.BLOOD_MOON_INTERVAL;
         int daysToBM = nextBM - currentDayRaw;
-        String bmText = isBloodMoon ? "§4● 血月今日" : "§7下次血月: §c" + daysToBM + "天后";
-        ctx.drawTextWithShadow(tr, Text.literal(bmText), cardX + 6, cardY + 16, COLOR_TEXT_DIM);
+        String bmText = isBloodMoon ? "● 血月今日" : "下次血月: " + daysToBM + "天后";
+        int bmColor = isBloodMoon ? COLOR_BLOOD_MOON : COLOR_TEXT_DIM;
+        ctx.drawTextWithShadow(tr, Text.literal(bmText), cardX + 6, cardY + 16, bmColor);
         // 进度条
         int barY = cardY + 26;
         int barH = 5;
@@ -419,20 +422,20 @@ public abstract class InventoryScreenMixin {
         cardY += dayCardH + 2;
         int intelCardH = 20;
         drawCard(ctx, cardX, cardY, cardW, intelCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§7智能度"), cardX + 6, cardY + 6, COLOR_TEXT_DIM);
+        ctx.drawTextWithShadow(tr, Text.literal("智能度"), cardX + 6, cardY + 6, COLOR_TEXT_DIM);
         String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
-        String[] intelColors = {"§a", "§e", "§6", "§c", "§4", "§4§l"};
-        String intelText = intelColors[intelLevel] + "Lv" + intelLevel + " " + intelNames[intelLevel];
-        int intelW = tr.getWidth(intelText.replaceAll("§[0-9a-fklmnor]", ""));
-        ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 6 - intelW, cardY + 6, COLOR_TEXT);
+        int[] intelColors = {0xFF33AA33, 0xFFFFAA00, 0xFFFFCC6622, 0xFFFF3333, 0xFFFF0000, 0xFFFF0000};
+        String intelText = "Lv" + intelLevel + " " + intelNames[intelLevel];
+        int intelW = tr.getWidth(intelText);
+        ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 6 - intelW, cardY + 6, intelColors[intelLevel]);
 
         // AI能力卡片 - 固定高度容纳所有行
         cardY += intelCardH + 2;
         int aiCardH = 4 + 11 * 5 + 4;
         drawCard(ctx, cardX, cardY, cardW, aiCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§e⚙ AI能力"), cardX + 6, cardY + 4, COLOR_TEXT_HI);
+        ctx.drawTextWithShadow(tr, Text.literal("⚙ AI能力"), cardX + 6, cardY + 4, COLOR_TEXT_HI);
 
-        int aiY = cardY + 15;
+        int aiY = cardY + 16;
         int breakInt = StageSystem.getBreakInterval(world);
         int buildInt = StageSystem.getBuildInterval(world);
         float hardLimit = StageSystem.getHardnessLimit(world);
@@ -440,77 +443,78 @@ public abstract class InventoryScreenMixin {
         int invSize = StageSystem.getBlockInventorySize(world);
 
         ctx.drawTextWithShadow(tr, Text.literal(
-                String.format("§7拆: §c%.1fs  §7搭: §c%.1fs", breakInt / 20.0, buildInt / 20.0)),
+                String.format("拆: %.1fs   搭: %.1fs", breakInt / 20.0, buildInt / 20.0)),
                 cardX + 6, aiY, COLOR_TEXT);
         aiY += 11;
         ctx.drawTextWithShadow(tr, Text.literal(
-                String.format("§7硬度上限: §c%.0f  §7库存: §c%d", hardLimit, invSize)),
+                String.format("硬度上限: %.0f   库存: %d", hardLimit, invSize)),
                 cardX + 6, aiY, COLOR_TEXT);
         aiY += 11;
         String reinStr = reinChance > 0
-                ? String.format("§7增援概率: §c%.0f%%", reinChance * 100)
-                : "§7增援: §8未解锁";
-        ctx.drawTextWithShadow(tr, Text.literal(reinStr), cardX + 6, aiY, COLOR_TEXT);
+                ? String.format("增援概率: %.0f%%", reinChance * 100)
+                : "增援: 未解锁";
+        int reinColor = reinChance > 0 ? COLOR_DANGER : COLOR_TEXT_DIM;
+        ctx.drawTextWithShadow(tr, Text.literal(reinStr), cardX + 6, aiY, reinColor);
         aiY += 11;
-        ctx.drawTextWithShadow(tr, Text.literal("§7夜速§a+15% §7血月§c+30%速§c+20%攻"),
+        ctx.drawTextWithShadow(tr, Text.literal("夜速+15%  血月+30%速 +20%攻"),
                 cardX + 6, aiY, COLOR_TEXT);
         aiY += 11;
         ctx.drawTextWithShadow(tr, Text.literal(getStageTip(currentDay)),
-                cardX + 6, aiY, COLOR_TEXT);
+                cardX + 6, aiY, COLOR_TEXT_HI);
 
         // 生存提示卡片
         cardY += aiCardH + 2;
         int tipCardH = 4 + 11 * 4 + 4;
         drawCard(ctx, cardX, cardY, cardW, tipCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§b★ 生存提示"), cardX + 6, cardY + 4, 0xFF66DDFF);
+        ctx.drawTextWithShadow(tr, Text.literal("★ 生存提示"), cardX + 6, cardY + 4, 0xFF66DDFF);
 
         int tipY = cardY + 16;
-        String[] tips = getSurvivalTips(currentDay, isBloodMoon);
-        for (String tip : tips) {
-            ctx.drawTextWithShadow(tr, Text.literal(tip), cardX + 6, tipY, COLOR_TEXT);
+        String[][] tipsData = getSurvivalTips(currentDay, isBloodMoon);
+        for (String[] tip : tipsData) {
+            ctx.drawTextWithShadow(tr, Text.literal(tip[0]), cardX + 6, tipY, Integer.parseInt(tip[1], 16));
             tipY += 11;
         }
     }
 
     @Unique
-    private String[] getSurvivalTips(int day, boolean isBloodMoon) {
+    private String[][] getSurvivalTips(int day, boolean isBloodMoon) {
         if (isBloodMoon) {
-            return new String[]{
-                    "§4血月期间怪物刷新翻倍！",
-                    "§c加固门窗，准备死守！",
-                    "§c巨型僵尸频繁出没，注意远程",
-                    "§e保留火把与高墙防御"
+            return new String[][]{
+                    {"血月期间怪物刷新翻倍！", "FFFF3333"},
+                    {"加固门窗，准备死守！", "FFFF3333"},
+                    {"巨型僵尸频繁出没，注意远程", "FFFF6644"},
+                    {"保留火把与高墙防御", "FFFFAA00"}
             };
         }
         if (day <= 10) {
-            return new String[]{
-                    "§a收集木头与食物，建立庇护所",
-                    "§a制作石制武器与护甲",
-                    "§7夜晚尽量待在室内",
-                    "§e留意第10天的血月！"
+            return new String[][]{
+                    {"收集木头与食物，建立庇护所", "FF33AA33"},
+                    {"制作石制武器与护甲", "FF33AA33"},
+                    {"夜晚尽量待在室内", "FF999999"},
+                    {"留意第10天的血月！", "FFFFAA00"}
             };
         }
         if (day <= 30) {
-            return new String[]{
-                    "§e加固防御，使用铁制装备",
-                    "§e准备弓箭应对远程威胁",
-                    "§6僵尸开始变强，注意血量",
-                    "§c第20/30天有血月"
+            return new String[][]{
+                    {"加固防御，使用铁制装备", "FFFFAA00"},
+                    {"准备弓箭应对远程威胁", "FFFFAA00"},
+                    {"僵尸开始变强，注意血量", "FFFFCC6622"},
+                    {"第20/30天有血月", "FFFF3333"}
             };
         }
         if (day <= 50) {
-            return new String[]{
-                    "§6携带钻石装备出门",
-                    "§c僵尸可破坏方块，加固墙体",
-                    "§4巨型僵尸出现，保持距离",
-                    "§4第40/50天血月极其危险"
+            return new String[][]{
+                    {"携带钻石装备出门", "FFFFCC6622"},
+                    {"僵尸可破坏方块，加固墙体", "FFFF3333"},
+                    {"巨型僵尸出现，保持距离", "FFFF3333"},
+                    {"第40/50天血月极其危险", "FFFF3333"}
             };
         }
-        return new String[]{
-                "§4末日降临，谨慎行动",
-                "§4巨型僵尸群出没，备足药水",
-                "§4高墙+护城河是最佳防御",
-                "§4第60/70/80/90/100天均为血月"
+        return new String[][]{
+                {"末日降临，谨慎行动", "FFFF3333"},
+                {"巨型僵尸群出没，备足药水", "FFFF3333"},
+                {"高墙+护城河是最佳防御", "FFFF3333"},
+                {"第60/70/80/90/100天均为血月", "FFFF3333"}
         };
     }
 
@@ -537,7 +541,7 @@ public abstract class InventoryScreenMixin {
         // 属性卡片
         int attrCardH = 58;
         drawCard(ctx, cardX, cardY, cardW, attrCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§c⚔ 普通僵尸属性"), cardX + 6, cardY + 4, COLOR_ZOMBIE);
+        ctx.drawTextWithShadow(tr, Text.literal("⚔ 普通僵尸属性"), cardX + 6, cardY + 4, COLOR_ZOMBIE);
 
         int rowY = cardY + 16;
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "血量", String.format("%.0f / 20", health),
@@ -559,7 +563,7 @@ public abstract class InventoryScreenMixin {
         cardY += attrCardH + 2;
         int combatCardH = 46;
         drawCard(ctx, cardX, cardY, cardW, combatCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§e⚙ 战斗能力"), cardX + 6, cardY + 4, COLOR_TEXT_HI);
+        ctx.drawTextWithShadow(tr, Text.literal("⚙ 战斗能力"), cardX + 6, cardY + 4, COLOR_TEXT_HI);
 
         rowY = cardY + 16;
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "拆方块", String.format("%.1fs", breakInt / 20.0), "", COLOR_TEXT);
@@ -569,20 +573,23 @@ public abstract class InventoryScreenMixin {
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "硬度上限", String.format("%.0f", hardLimit), "", COLOR_TEXT);
         rowY += 11;
         String reinStr = reinChance > 0 ? String.format("%.0f%%", reinChance * 100) : "未解锁";
-        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "呼叫增援", reinStr, "", COLOR_TEXT);
+        int reinColor = reinChance > 0 ? COLOR_DANGER : COLOR_TEXT_DIM;
+        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "呼叫增援", reinStr, "", reinColor);
 
         // 加成状态卡片 - 固定高度容纳所有行
         cardY += combatCardH + 2;
         int buffCardH = 4 + 11 * 3 + 4;
         drawCard(ctx, cardX, cardY, cardW, buffCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§b★ 当前加成"), cardX + 6, cardY + 4, 0xFF66DDFF);
+        ctx.drawTextWithShadow(tr, Text.literal("★ 当前加成"), cardX + 6, cardY + 4, 0xFF66DDFF);
 
         rowY = cardY + 16;
-        String nightStr = isNight ? "§a激活 +15%速" : "§7未激活";
-        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "夜晚加成", nightStr, "", COLOR_TEXT);
+        String nightStr = isNight ? "激活 +15%速" : "未激活";
+        int nightColor = isNight ? 0xFF33AA33 : COLOR_TEXT_DIM;
+        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "夜晚加成", nightStr, "", nightColor);
         rowY += 11;
-        String bmStr = isBloodMoon ? "§4激活 +30%速 +20%攻" : "§7未激活";
-        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "血月加成", bmStr, "", COLOR_TEXT);
+        String bmStr = isBloodMoon ? "激活 +30%速 +20%攻" : "未激活";
+        int bmColor = isBloodMoon ? COLOR_BLOOD_MOON : COLOR_TEXT_DIM;
+        drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "血月加成", bmStr, "", bmColor);
         rowY += 11;
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "库存容量", invSize + " 格", "", COLOR_TEXT);
     }
@@ -602,11 +609,14 @@ public abstract class InventoryScreenMixin {
         // 属性卡片
         int attrCardH = 70;
         drawCard(ctx, cardX, cardY, cardW, attrCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§5▾ 巨型僵尸属性"), cardX + 6, cardY + 4, COLOR_GIANT);
-        ctx.drawTextWithShadow(tr, Text.literal("§7(2倍缩放)"), cardX + cardW - 6 - tr.getWidth("(2倍缩放)"),
-                cardY + 5, COLOR_TEXT_DIM);
+        // 标题和副标题 y 坐标统一，避免错位
+        int titleY = cardY + 4;
+        ctx.drawTextWithShadow(tr, Text.literal("▾ 巨型僵尸属性"), cardX + 6, titleY, COLOR_GIANT);
+        String scaleText = "(2倍缩放)";
+        ctx.drawTextWithShadow(tr, Text.literal(scaleText),
+                cardX + cardW - 6 - tr.getWidth(scaleText), titleY, COLOR_TEXT_DIM);
 
-        int rowY = cardY + 18;
+        int rowY = cardY + 16;
         double atkMult = StageSystem.getAttackMultiplier(world);
         drawDetailRow(ctx, tr, cardX + 6, rowY, cardW - 12, "血量", String.format("%.0f / 200", health),
                 String.format("(%.1fx)", health / 200), COLOR_GIANT);
@@ -626,18 +636,18 @@ public abstract class InventoryScreenMixin {
         cardY += attrCardH + 2;
         int dropCardH = 4 + 11 * 5 + 4;
         drawCard(ctx, cardX, cardY, cardW, dropCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§6◈ 掉落物"), cardX + 6, cardY + 4, 0xFFFFAA00);
+        ctx.drawTextWithShadow(tr, Text.literal("◈ 掉落物"), cardX + 6, cardY + 4, 0xFFFFAA00);
 
         rowY = cardY + 16;
-        ctx.drawTextWithShadow(tr, Text.literal("§7腐肉 §f3-8  §7骨头 §f3-6"), cardX + 6, rowY, COLOR_TEXT);
+        ctx.drawTextWithShadow(tr, Text.literal("腐肉 3-8   骨头 3-6"), cardX + 6, rowY, COLOR_TEXT);
         rowY += 11;
-        ctx.drawTextWithShadow(tr, Text.literal("§7铁锭 §f2-5  §7金锭 §f1-3"), cardX + 6, rowY, COLOR_TEXT);
+        ctx.drawTextWithShadow(tr, Text.literal("铁锭 2-5   金锭 1-3"), cardX + 6, rowY, COLOR_TEXT);
         rowY += 11;
-        ctx.drawTextWithShadow(tr, Text.literal("§7钻石 §f0-2  §7绿宝石 §f0-3"), cardX + 6, rowY, COLOR_TEXT);
+        ctx.drawTextWithShadow(tr, Text.literal("钻石 0-2   绿宝石 0-3"), cardX + 6, rowY, COLOR_TEXT);
         rowY += 11;
-        ctx.drawTextWithShadow(tr, Text.literal("§d附魔金苹果 §f0-1 §7(稀有)"), cardX + 6, rowY, COLOR_TEXT);
+        ctx.drawTextWithShadow(tr, Text.literal("附魔金苹果 0-1 (稀有)"), cardX + 6, rowY, 0xFFFF66FF);
         rowY += 11;
-        ctx.drawTextWithShadow(tr, Text.literal("§a经验瓶 §f1-5"), cardX + 6, rowY, COLOR_TEXT);
+        ctx.drawTextWithShadow(tr, Text.literal("经验瓶 1-5"), cardX + 6, rowY, 0xFF33AA33);
     }
 
     // ===================== 辅助绘制方法 =====================
@@ -645,12 +655,23 @@ public abstract class InventoryScreenMixin {
     @Unique
     private void drawDetailRow(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                                String label, String value, String extra, int valueColor) {
-        ctx.drawTextWithShadow(tr, Text.literal("§7" + label), x, y, COLOR_TEXT_DIM);
-        int extraW = extra.isEmpty() ? 0 : tr.getWidth(extra) + 4;
+        // 统一用 color 参数控制颜色，不使用 § 前缀避免冲突
+        ctx.drawTextWithShadow(tr, Text.literal(label), x, y, COLOR_TEXT_DIM);
+
         int valW = tr.getWidth(value);
-        ctx.drawTextWithShadow(tr, Text.literal("§f" + value), x + w - valW - extraW - 2, y, valueColor);
-        if (!extra.isEmpty()) {
-            ctx.drawTextWithShadow(tr, Text.literal("§8" + extra), x + w - extraW + 2, y, COLOR_TEXT_DIM);
+        int extraW = extra.isEmpty() ? 0 : tr.getWidth(extra);
+        int rightPad = 2;
+        int gap = 4;
+
+        if (extra.isEmpty()) {
+            // value 右对齐到 w - rightPad
+            ctx.drawTextWithShadow(tr, Text.literal(value), x + w - valW - rightPad, y, valueColor);
+        } else {
+            // extra 最右对齐，value 在 extra 左侧 gap 间距处
+            int extraX = x + w - extraW - rightPad;
+            int valX = extraX - gap - valW;
+            ctx.drawTextWithShadow(tr, Text.literal(value), valX, y, valueColor);
+            ctx.drawTextWithShadow(tr, Text.literal(extra), extraX, y, COLOR_TEXT_DIM);
         }
     }
 
@@ -664,11 +685,11 @@ public abstract class InventoryScreenMixin {
 
     @Unique
     private String getStageTip(int day) {
-        if (day <= 10) return "§a初期 - 收集资源，建立基地";
-        if (day <= 30) return "§e发展 - 加固防御，准备迎战";
-        if (day <= 50) return "§6中期 - 僵尸越来越强！";
-        if (day <= 70) return "§c后期 - 巨型僵尸频繁出没！";
-        return "§4最终 - 末日降临，拼死生存！";
+        if (day <= 10) return "初期 - 收集资源，建立基地";
+        if (day <= 30) return "发展 - 加固防御，准备迎战";
+        if (day <= 50) return "中期 - 僵尸越来越强！";
+        if (day <= 70) return "后期 - 巨型僵尸频繁出没！";
+        return "最终 - 末日降临，拼死生存！";
     }
 
     @Unique
