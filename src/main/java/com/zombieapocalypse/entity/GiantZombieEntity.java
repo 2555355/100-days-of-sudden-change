@@ -27,6 +27,8 @@ public class GiantZombieEntity extends ZombieEntity {
 
     public GiantZombieEntity(EntityType<? extends GiantZombieEntity> entityType, World world) {
         super(entityType, world);
+        // 巨型僵尸可跨过两格高方块（原版默认0.6，只能跨1格）
+        this.setStepHeight(2.0f);
     }
 
     @Override
