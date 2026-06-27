@@ -172,22 +172,27 @@ public abstract class InventoryScreenMixin {
         }
     }
 
-    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
-    private void handleScroll(double mouseX, double mouseY, double amount, CallbackInfoReturnable<Boolean> cir) {
+    // GLFW 键码
+    @Unique private static final int KEY_UP = 265;
+    @Unique private static final int KEY_DOWN = 264;
+    @Unique private static final int KEY_PAGE_UP = 266;
+    @Unique private static final int KEY_PAGE_DOWN = 267;
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void handleScrollKey(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (!isInventoryScreen()) return;
         if (currentTab != 0) return;
-        int panelY = this.y + getTabOffset();
-        if (mouseX < this.x || mouseX > this.x + PANEL_W) return;
-        if (mouseY < panelY || mouseY > panelY + PANEL_H) return;
+
+        boolean up = keyCode == KEY_UP || keyCode == KEY_PAGE_UP;
+        boolean down = keyCode == KEY_DOWN || keyCode == KEY_PAGE_DOWN;
+        if (!up && !down) return;
 
         int visibleH = PANEL_H - 41 - 4; // 内容可视高度
         int maxScroll = Math.max(0, currentContentHeight - visibleH);
-        if (maxScroll <= 0) {
-            cir.setReturnValue(true);
-            return;
-        }
-        // amount > 0 向上滚, < 0 向下滚
-        int delta = amount > 0 ? -SCROLL_STEP : SCROLL_STEP;
+        if (maxScroll <= 0) return;
+
+        int step = (keyCode == KEY_PAGE_UP || keyCode == KEY_PAGE_DOWN) ? visibleH : SCROLL_STEP;
+        int delta = up ? -step : step;
         int next = getCurrentScroll() + delta;
         next = Math.max(0, Math.min(maxScroll, next));
         setCurrentScroll(next);
