@@ -89,8 +89,8 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
     }
 
     /**
-     * 降低小僵尸生成概率 (默认5% → 2%)
-     * 在initialize之后，如果生成了小僵尸，有60%概率转回成年
+     * 降低小僵尸生成概率 (默认5% → 0.5%)
+     * 在initialize之后，如果生成了小僵尸，有90%概率转回成年
      */
     @Inject(method = "initialize", at = @At("TAIL"))
     private void reduceBabyChance(net.minecraft.world.ServerWorldAccess world,
@@ -100,7 +100,7 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
                                   net.minecraft.nbt.NbtCompound entityNbt,
                                   CallbackInfoReturnable<net.minecraft.entity.EntityData> cir) {
         ZombieEntity self = (ZombieEntity) (Object) this;
-        if (self.isBaby() && self.getRandom().nextFloat() < 0.6f) {
+        if (self.isBaby() && self.getRandom().nextFloat() < 0.9f) {
             self.setBaby(false);
         }
     }
