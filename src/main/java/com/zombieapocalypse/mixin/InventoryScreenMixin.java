@@ -209,71 +209,70 @@ public abstract class InventoryScreenMixin {
         drawCornerDecor(ctx, px, py, pw, ph);
 
         // ===== 标题横幅 =====
-        int titleY = py + 9;
-        int titleH = 18;
+        int titleY = py + 6;
+        int titleH = 16;
         ctx.fill(px + 6, titleY, px + pw - 6, titleY + titleH, 0x993A0505);
         ctx.fill(px + 6, titleY, px + pw - 6, titleY + 1, COLOR_ACCENT);
         ctx.fill(px + 6, titleY + titleH - 1, px + pw - 6, titleY + titleH, COLOR_ACCENT);
-        // 血月时标题变鲜红
         int titleColor = isBloodMoon ? COLOR_BLOOD_MOON : 0xFFFF5555;
-        ctx.drawCenteredTextWithShadow(tr, Text.literal("☠ 惊变100天 ☠"), centerX, titleY + 5, titleColor);
+        ctx.drawCenteredTextWithShadow(tr, Text.literal("☠ 惊变100天 ☠"), centerX, titleY + 4, titleColor);
 
         // 血月警告条
+        int bloodMoonOffset = 0;
         if (isBloodMoon) {
-            int warnY = titleY + titleH + 2;
-            ctx.fill(px + 6, warnY, px + pw - 6, warnY + 12, 0xCC660000);
+            int warnY = titleY + titleH + 1;
+            bloodMoonOffset = 13;
+            ctx.fill(px + 6, warnY, px + pw - 6, warnY + 11, 0xCC660000);
             ctx.fill(px + 6, warnY, px + pw - 6, warnY + 1, COLOR_BLOOD_MOON);
-            ctx.fill(px + 6, warnY + 11, px + pw - 6, warnY + 12, COLOR_BLOOD_MOON);
-            ctx.drawCenteredTextWithShadow(tr, Text.literal("● 血月进行中 ●"), centerX, warnY + 2, COLOR_BLOOD_MOON);
+            ctx.fill(px + 6, warnY + 10, px + pw - 6, warnY + 11, COLOR_BLOOD_MOON);
+            ctx.drawCenteredTextWithShadow(tr, Text.literal("● 血月进行中 ●"), centerX, warnY + 1, COLOR_BLOOD_MOON);
         }
 
-        // ===== 天数卡片 =====
-        int cardY = isBloodMoon ? titleY + titleH + 18 : titleY + titleH + 4;
         int cardW = pw - 12;
         int cardX = px + 6;
-        int cardH = 44;
+        int cardY = titleY + titleH + bloodMoonOffset + 2;
 
-        drawCard(ctx, cardX, cardY, cardW, cardH);
-        // 天数大字
+        // ===== 天数 + 血月倒计时 (紧凑) =====
+        int dayCardH = 36;
+        drawCard(ctx, cardX, cardY, cardW, dayCardH);
         String dayStr = String.valueOf(currentDay);
-        ctx.drawTextWithShadow(tr, Text.literal("§f生存第"), cardX + 8, cardY + 7, COLOR_TEXT_DIM);
-        int dayNumW = tr.getWidth(dayStr);
-        ctx.drawTextWithShadow(tr, Text.literal("§e§l" + dayStr), cardX + 34, cardY + 5, COLOR_TEXT_HI);
-        ctx.drawTextWithShadow(tr, Text.literal("§f天 §7/ " + ModConfig.TOTAL_DAYS), cardX + 34 + dayNumW + 2, cardY + 7, COLOR_TEXT_DIM);
+        ctx.drawTextWithShadow(tr, Text.literal("§f第"), cardX + 6, cardY + 5, COLOR_TEXT_DIM);
+        ctx.drawTextWithShadow(tr, Text.literal("§e§l" + dayStr), cardX + 18, cardY + 4, COLOR_TEXT_HI);
+        ctx.drawTextWithShadow(tr, Text.literal("§f天 §7/" + ModConfig.TOTAL_DAYS), cardX + 18 + tr.getWidth(dayStr) + 2, cardY + 5, COLOR_TEXT_DIM);
+        // 血月倒计时
+        int currentDayRaw = StageSystem.getCurrentDay(world);
+        int nextBloodMoon = ((currentDayRaw / ModConfig.BLOOD_MOON_INTERVAL) + 1) * ModConfig.BLOOD_MOON_INTERVAL;
+        int daysToBloodMoon = nextBloodMoon - currentDayRaw;
+        String bmText = isBloodMoon ? "§4● 血月今日" : "§7下次血月: §c" + daysToBloodMoon + "天后";
+        ctx.drawTextWithShadow(tr, Text.literal(bmText), cardX + 6, cardY + 18, COLOR_TEXT_DIM);
 
         // 进度条
-        int barY = cardY + 22;
-        int barH = 12;
-        int barX = cardX + 8;
-        int barW = cardW - 16;
+        int barY = cardY + 28;
+        int barH = 6;
+        int barX = cardX + 6;
+        int barW = cardW - 12;
         ctx.fill(barX, barY, barX + barW, barY + barH, 0xFF050505);
-        ctx.fill(barX, barY, barX + barW, barY + 1, 0x44FF3333);
-        ctx.fill(barX, barY + barH - 1, barX + barW, barY + barH, 0x44FF3333);
         int filledW = (int) (barW * progress);
-        // 渐变进度条
         int barColor = getProgressColor(progress);
         if (filledW > 0) {
-            ctx.fill(barX + 1, barY + 1, barX + filledW, barY + barH - 1, barColor);
-            // 高光
-            ctx.fill(barX + 1, barY + 1, barX + filledW, barY + 2, 0x66FFFFFF);
+            ctx.fill(barX, barY, barX + filledW, barY + barH, barColor);
+            ctx.fill(barX, barY, barX + filledW, barY + 1, 0x66FFFFFF);
         }
-        ctx.drawCenteredTextWithShadow(tr, Text.literal(String.format("%.0f%%", progress * 100)),
-                barX + barW / 2, barY + 2, COLOR_TEXT);
 
         // ===== 智能度卡片 =====
-        cardY += cardH + 4;
-        int intelCardH = 22;
+        cardY += dayCardH + 2;
+        int intelCardH = 20;
         drawCard(ctx, cardX, cardY, cardW, intelCardH);
-        ctx.drawTextWithShadow(tr, Text.literal("§7僵尸智能度"), cardX + 8, cardY + 7, COLOR_TEXT_DIM);
+        ctx.drawTextWithShadow(tr, Text.literal("§7智能度"), cardX + 6, cardY + 6, COLOR_TEXT_DIM);
         String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
         String[] intelColors = {"§a", "§e", "§6", "§c", "§4", "§4§l"};
         String intelText = intelColors[intelLevel] + "Lv" + intelLevel + " " + intelNames[intelLevel];
-        ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 8 - tr.getWidth(intelText.replace("§", "").replace("l", "")),
-                cardY + 7, COLOR_TEXT);
+        int intelTextW = tr.getWidth(intelText.replaceAll("§[0-9a-fklmnor]", ""));
+        ctx.drawTextWithShadow(tr, Text.literal(intelText), cardX + cardW - 6 - intelTextW, cardY + 6, COLOR_TEXT);
 
         // ===== 僵尸属性卡片 =====
-        cardY += intelCardH + 4;
-        int attrCardH = 48;
+        cardY += intelCardH + 2;
+        int attrCardH = 40;
         drawCard(ctx, cardX, cardY, cardW, attrCardH);
 
         double zombieHealth = StageSystem.getZombieHealth(world);
@@ -284,27 +283,66 @@ public abstract class InventoryScreenMixin {
         double giantAttack = StageSystem.getGiantZombieAttack(world);
         double giantChance = StageSystem.getGiantZombieChance(world);
 
-        ctx.drawTextWithShadow(tr, Text.literal("§c⚔ 僵尸属性"), cardX + 8, cardY + 5, COLOR_ACCENT);
+        ctx.drawTextWithShadow(tr, Text.literal("§c⚔ 僵尸属性"), cardX + 6, cardY + 4, COLOR_ACCENT);
 
-        int rowY = cardY + 18;
-        int colW = (cardW - 16) / 2;
-        drawAttrRow(ctx, tr, cardX + 8, rowY, colW, "血量", String.format("%.0f", zombieHealth), COLOR_DANGER);
-        drawAttrRow(ctx, tr, cardX + 8 + colW, rowY, colW, "攻击", String.format("%.1f", zombieAttack), COLOR_TEXT_HI);
-        rowY += 12;
-        drawAttrRow(ctx, tr, cardX + 8, rowY, colW, "护甲", String.format("%.0f", zombieArmor), COLOR_TEXT);
-        drawAttrRow(ctx, tr, cardX + 8 + colW, rowY, colW, "速度", String.format("%.2f", zombieSpeed), COLOR_TEXT);
-        rowY += 12;
-        drawAttrRow(ctx, tr, cardX + 8, rowY, colW, "巨型血量", String.format("%.0f", giantHealth), 0xFFFF44FF);
-        String giantStr = String.format("%.1f%%", giantChance * 100);
-        drawAttrRow(ctx, tr, cardX + 8 + colW, rowY, colW, "巨型概率", giantStr, 0xFFFF44FF);
+        int rowY = cardY + 15;
+        int colW = (cardW - 12) / 2;
+        drawAttrRow(ctx, tr, cardX + 6, rowY, colW, "血量", String.format("%.0f", zombieHealth), COLOR_DANGER);
+        drawAttrRow(ctx, tr, cardX + 6 + colW, rowY, colW, "攻击", String.format("%.1f", zombieAttack), COLOR_TEXT_HI);
+        rowY += 11;
+        drawAttrRow(ctx, tr, cardX + 6, rowY, colW, "护甲", String.format("%.0f", zombieArmor), COLOR_TEXT);
+        drawAttrRow(ctx, tr, cardX + 6 + colW, rowY, colW, "速度", String.format("%.2f", zombieSpeed), COLOR_TEXT);
 
-        // ===== 底部提示 =====
-        cardY += attrCardH + 4;
-        int tipH = ph - (cardY - py) - 4;
-        if (tipH > 8) {
-            drawCard(ctx, cardX, cardY, cardW, tipH);
-            String tip = getStageTip(currentDay);
-            ctx.drawCenteredTextWithShadow(tr, Text.literal(tip), centerX, cardY + (tipH - 8) / 2, COLOR_TEXT);
+        // ===== 巨型僵尸卡片 =====
+        cardY += attrCardH + 2;
+        int giantCardH = 26;
+        drawCard(ctx, cardX, cardY, cardW, giantCardH);
+        ctx.drawTextWithShadow(tr, Text.literal("§5▾ 巨型僵尸"), cardX + 6, cardY + 4, 0xFFFF66FF);
+        rowY = cardY + 15;
+        drawAttrRow(ctx, tr, cardX + 6, rowY, colW, "血量", String.format("%.0f", giantHealth), 0xFFFF88FF);
+        drawAttrRow(ctx, tr, cardX + 6 + colW, rowY, colW, "攻击", String.format("%.1f", giantAttack), 0xFFFF88FF);
+        rowY += 11;
+        drawAttrRow(ctx, tr, cardX + 6, rowY, colW, "概率", String.format("%.1f%%", giantChance * 100), 0xFFFF88FF);
+        int followRange = StageSystem.getFollowRange(world);
+        drawAttrRow(ctx, tr, cardX + 6 + colW, rowY, colW, "追踪", followRange + "格", 0xFFFF88FF);
+
+        // ===== AI能力卡片 =====
+        cardY += giantCardH + 2;
+        int aiCardH = ph - (cardY - py) - 4;
+        if (aiCardH > 10) {
+            drawCard(ctx, cardX, cardY, cardW, aiCardH);
+            ctx.drawTextWithShadow(tr, Text.literal("§e⚙ AI能力"), cardX + 6, cardY + 4, COLOR_TEXT_HI);
+
+            int aiY = cardY + 15;
+            int breakInterval = StageSystem.getBreakInterval(world);
+            int buildInterval = StageSystem.getBuildInterval(world);
+            float hardnessLimit = StageSystem.getHardnessLimit(world);
+            double reinforceChance = StageSystem.getReinforcementChance(world);
+            int invSize = StageSystem.getBlockInventorySize(world);
+
+            // 拆/搭方块速度
+            String breakStr = String.format("§7拆: §c%.1fs  §7搭: §c%.1fs", breakInterval / 20.0, buildInterval / 20.0);
+            ctx.drawTextWithShadow(tr, Text.literal(breakStr), cardX + 6, aiY, COLOR_TEXT);
+            aiY += 11;
+            // 硬度上限 + 库存
+            String hardStr = String.format("§7硬度上限: §c%.0f  §7库存: §c%d", hardnessLimit, invSize);
+            ctx.drawTextWithShadow(tr, Text.literal(hardStr), cardX + 6, aiY, COLOR_TEXT);
+            aiY += 11;
+            // 增援概率
+            String reinStr = reinforceChance > 0
+                    ? String.format("§7增援概率: §c%.0f%%", reinforceChance * 100)
+                    : "§7增援: §8未解锁";
+            ctx.drawTextWithShadow(tr, Text.literal(reinStr), cardX + 6, aiY, COLOR_TEXT);
+            aiY += 11;
+            // 夜晚/血月加成
+            String buffStr = "§7夜速§a+15% §7血月§c+30%速§c+20%攻";
+            ctx.drawTextWithShadow(tr, Text.literal(buffStr), cardX + 6, aiY, COLOR_TEXT);
+            aiY += 11;
+            // 阶段提示
+            if (aiY < cardY + aiCardH - 2) {
+                String tip = getStageTip(currentDay);
+                ctx.drawTextWithShadow(tr, Text.literal(tip), cardX + 6, aiY, COLOR_TEXT);
+            }
         }
     }
 
