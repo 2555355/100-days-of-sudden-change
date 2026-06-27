@@ -47,7 +47,7 @@ public class ModConfig {
 
     // ========== 巨型僵尸 ==========
     /** 巨型僵尸基础血量 */
-    public static double GIANT_ZOMBIE_BASE_HEALTH = 200.0;
+    public static double GIANT_ZOMBIE_BASE_HEALTH = 400.0;
 
     /** 巨型僵尸最高血量 */
     public static double GIANT_ZOMBIE_MAX_HEALTH = 600.0;

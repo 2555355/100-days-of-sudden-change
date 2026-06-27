@@ -84,11 +84,22 @@ public class StageSystem {
     }
 
     /**
+     * 巨型僵尸开始刷新天数
+     */
+    public static final int GIANT_ZOMBIE_START_DAY = 40;
+
+    /**
      * 根据阶段计算巨型僵尸生成概率
-     * 第1天: 2%, 第100天: 30%
+     * 第40天前: 0% (不刷新)
+     * 第40天: 2%, 第100天: 30% (按 40→100 天线性增长)
      */
     public static double getGiantZombieChance(World world) {
-        double progress = getStageProgress(world);
+        int day = getCurrentDay(world);
+        if (day < GIANT_ZOMBIE_START_DAY) return 0.0;
+        // 基于 40→100 天的进度计算
+        double progress = (double) (day - GIANT_ZOMBIE_START_DAY) /
+                (double) (ModConfig.TOTAL_DAYS - GIANT_ZOMBIE_START_DAY);
+        progress = Math.max(0.0, Math.min(1.0, progress));
         return ModConfig.GIANT_ZOMBIE_BASE_CHANCE +
                 (ModConfig.GIANT_ZOMBIE_MAX_CHANCE - ModConfig.GIANT_ZOMBIE_BASE_CHANCE) * progress;
     }
@@ -101,11 +112,39 @@ public class StageSystem {
     }
 
     /**
-     * 是否为血月 (每10天一次)
+     * 是否为血月 (随机刷新)
+     * 每天入睡时按概率随机决定第二天是否为血月。
+     * 当前实现: 按天数的伪随机, 平均每 BLOOD_MOON_INTERVAL 天一次。
+     * 使用确定性哈希保证所有玩家/服务端看到同一结果。
      */
     public static boolean isBloodMoon(World world) {
         int day = getCurrentDay(world);
-        return day > 0 && day % ModConfig.BLOOD_MOON_INTERVAL == 0;
+        if (day <= 0) return false;
+        // 基于(种子+天数)的确定性伪随机, 保证同步
+        long seed = world.getSeed() ^ ((long) day * 2654435761L);
+        java.util.Random rng = new java.util.Random(seed);
+        // 平均概率: 1 / BLOOD_MOON_INTERVAL
+        return rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL);
+    }
+
+    /**
+     * 获取下次血月预测 (用于UI显示倒计时, 因随机性只能给出期望)
+     * 返回当前是否处于血月; 若否则返回剩余期望天数
+     */
+    public static int getDaysToNextBloodMoon(World world) {
+        if (isBloodMoon(world)) return 0;
+        // 扫描未来最多 BLOOD_MOON_INTERVAL 天, 找到第一个血月
+        int currentDay = getCurrentDay(world);
+        for (int i = 1; i <= ModConfig.BLOOD_MOON_INTERVAL; i++) {
+            int futureDay = currentDay + i;
+            long seed = world.getSeed() ^ ((long) futureDay * 2654435761L);
+            java.util.Random rng = new java.util.Random(seed);
+            if (rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL)) {
+                return i;
+            }
+        }
+        // 未找到则返回期望间隔
+        return ModConfig.BLOOD_MOON_INTERVAL;
     }
 
     /**

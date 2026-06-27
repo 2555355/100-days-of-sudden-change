@@ -184,10 +184,8 @@ public class ApocalypseBookScreen extends Screen {
         ctx.drawTextWithShadow(tr, Text.literal("天 /" + ModConfig.TOTAL_DAYS),
                 leftX + 16 + tr.getWidth(dayStr) + 2, y + 5, COLOR_TEXT_DIM);
         // 血月倒计时
-        int currentDayRaw = StageSystem.getCurrentDay(world);
-        int nextBM = ((currentDayRaw / ModConfig.BLOOD_MOON_INTERVAL) + 1) * ModConfig.BLOOD_MOON_INTERVAL;
-        int daysToBM = nextBM - currentDayRaw;
-        String bmText = isBloodMoon ? "● 血月今日" : "下次血月: " + daysToBM + "天后";
+        int daysToBM = StageSystem.getDaysToNextBloodMoon(world);
+        String bmText = isBloodMoon ? "● 血月今日" : "下次血月: ~" + daysToBM + "天后";
         ctx.drawTextWithShadow(tr, Text.literal(bmText), leftX + 6, y + 16,
                 isBloodMoon ? COLOR_BLOOD_MOON : COLOR_TEXT_DIM);
         // 进度条
@@ -318,8 +316,8 @@ public class ApocalypseBookScreen extends Screen {
         ctx.drawTextWithShadow(tr, Text.literal("(2x)"), leftX + pageW - 6 - tr.getWidth("(2x)"), y + 4, COLOR_TEXT_DIM);
         int ry = y + 16;
         double atkMult = StageSystem.getAttackMultiplier(world);
-        drawDetailRow(ctx, tr, leftX + 6, ry, pageW - 12, "血量", String.format("%.0f/200", health),
-                String.format("(%.1fx)", health / 200), COLOR_GIANT); ry += 11;
+        drawDetailRow(ctx, tr, leftX + 6, ry, pageW - 12, "血量", String.format("%.0f/400", health),
+                String.format("(%.1fx)", health / 400), COLOR_GIANT); ry += 11;
         drawDetailRow(ctx, tr, leftX + 6, ry, pageW - 12, "攻击", String.format("%.1f", attack),
                 atkMult > 1 ? String.format("(x%.1f)", atkMult) : "", COLOR_GIANT); ry += 11;
         drawDetailRow(ctx, tr, leftX + 6, ry, pageW - 12, "生成概率", String.format("%.1f%%", chance * 100), "", COLOR_GIANT); ry += 11;
