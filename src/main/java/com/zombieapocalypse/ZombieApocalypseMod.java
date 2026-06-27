@@ -8,6 +8,7 @@ import com.zombieapocalypse.item.ModItems;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.*;
@@ -15,6 +16,7 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemGroups;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -42,6 +44,11 @@ public class ZombieApocalypseMod implements ModInitializer {
 
         // 注册物品
         ModItems.registerItems();
+
+        // 添加末日情报书到创造物品栏(Tools 组)
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(
+                entries -> entries.add(new ItemStack(ModItems.APOCALYPSE_BOOK))
+        );
 
         // 注册巨型僵尸默认属性
         FabricDefaultAttributeRegistry.register(ModEntities.GIANT_ZOMBIE, GiantZombieEntity.createGiantZombieAttributes());
