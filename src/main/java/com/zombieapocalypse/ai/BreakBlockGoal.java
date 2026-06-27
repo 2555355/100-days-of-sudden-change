@@ -51,7 +51,8 @@ public class BreakBlockGoal extends Goal {
         }
 
         if (breakCooldown > 0) {
-            breakCooldown -= (stuckTicks > 40) ? 3 : 1;
+            // 卡住时加速冷却恢复, 更快突破
+            breakCooldown -= (stuckTicks > 25) ? 4 : 1;
             return false;
         }
 
@@ -68,10 +69,17 @@ public class BreakBlockGoal extends Goal {
         Direction facing = this.mob.getHorizontalFacing();
         Direction towardPlayer = getDirectionToward(mobPos, targetPos);
 
-        // 第一优先级：扫描门、玻璃、活板门 (更智能的突破)
+        // 计算与玩家的水平距离, 距离近时更积极破坏
+        int distToPlayer = Math.abs(targetPos.getX() - mobPos.getX()) + Math.abs(targetPos.getZ() - mobPos.getZ());
+        boolean closeToPlayer = distToPlayer <= 5;
+
+        // 第一优先级：直接阻挡前进的方块(前方1格, 玩家方向1格) - 最关键
+        if (breakDirectObstacle(world, mobPos, facing, towardPlayer)) return true;
+
+        // 第二优先级：扫描门、玻璃、活板门 (快速突破, 1-2格内)
         if (scanPriorityBlocks(world, mobPos, facing, towardPlayer)) return true;
 
-        // 第二优先级：常规方块
+        // 第三优先级：前方1-2格常规方块(脚/头/顶高度)
         for (int y = 0; y <= 2; y++) {
             if (checkAndSetBlock(world, mobPos.offset(facing).up(y))) return true;
         }
@@ -86,16 +94,23 @@ public class BreakBlockGoal extends Goal {
                 if (checkAndSetBlock(world, mobPos.offset(towardPlayer, 2).up(y))) return true;
             }
         }
+
+        // 第四优先级：头顶/脚下阻挡
         if (checkAndSetBlock(world, mobPos.up(1))) return true;
         if (checkAndSetBlock(world, mobPos.up(2))) return true;
-        if (checkAndSetBlock(world, mobPos)) return true;
-        Direction left = facing.rotateYCounterclockwise();
-        Direction right = facing.rotateYClockwise();
-        for (int y = 0; y <= 2; y++) {
-            if (checkAndSetBlock(world, mobPos.offset(left).up(y))) return true;
-            if (checkAndSetBlock(world, mobPos.offset(right).up(y))) return true;
+
+        // 第五优先级：侧面(玩家近时才扫, 避免偏离追击)
+        if (closeToPlayer) {
+            Direction left = facing.rotateYCounterclockwise();
+            Direction right = facing.rotateYClockwise();
+            for (int y = 0; y <= 2; y++) {
+                if (checkAndSetBlock(world, mobPos.offset(left).up(y))) return true;
+                if (checkAndSetBlock(world, mobPos.offset(right).up(y))) return true;
+            }
         }
-        if (stuckTicks > 40) {
+
+        // 第六优先级：卡住时扩大扫描(前方3格 + 周围2格)
+        if (stuckTicks > 25) {
             for (int y = 0; y <= 2; y++) {
                 if (checkAndSetBlock(world, mobPos.offset(facing, 3).up(y))) return true;
             }
@@ -111,11 +126,26 @@ public class BreakBlockGoal extends Goal {
     }
 
     /**
-     * 优先扫描门、玻璃、活板门等可快速突破的方块
+     * 破坏直接阻挡前进的方块(前方1格脚部/头部, 玩家方向1格脚部/头部)
+     * 这是让僵尸能贴近玩家最关键的一步
+     */
+    private boolean breakDirectObstacle(World world, BlockPos mobPos, Direction facing, Direction towardPlayer) {
+        // 前方1格的脚和头(阻挡行走)
+        if (checkAndSetBlock(world, mobPos.offset(facing))) return true;
+        if (checkAndSetBlock(world, mobPos.offset(facing).up(1))) return true;
+        // 朝玩家方向1格的脚和头
+        if (towardPlayer != facing) {
+            if (checkAndSetBlock(world, mobPos.offset(towardPlayer))) return true;
+            if (checkAndSetBlock(world, mobPos.offset(towardPlayer).up(1))) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 优先扫描门、玻璃、活板门等可快速突破的方块(1-2格内)
      */
     private boolean scanPriorityBlocks(World world, BlockPos mobPos, Direction facing, Direction towardPlayer) {
-        // 检查朝向方向1-3格内的门/玻璃
-        for (int dist = 1; dist <= 3; dist++) {
+        for (int dist = 1; dist <= 2; dist++) {
             for (int y = 0; y <= 2; y++) {
                 BlockPos pos = mobPos.offset(facing, dist).up(y);
                 if (isPriorityBlockAt(world, pos)) {
