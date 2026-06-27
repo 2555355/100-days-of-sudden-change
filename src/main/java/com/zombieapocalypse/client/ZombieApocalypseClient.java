@@ -18,6 +18,9 @@ public class ZombieApocalypseClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.GIANT_ZOMBIE, (context) ->
                 new GiantZombieRenderer(context, ModConfig.GIANT_ZOMBIE_SCALE));
 
+        // 注册血月HUD提示 (血月时屏幕中央显示警告)
+        BloodMoonHudOverlay.register();
+
         // 右键使用末日情报书时打开末日情报面板
         UseItemCallback.EVENT.register((player, world, hand) -> {
             ItemStack stack = player.getStackInHand(hand);
