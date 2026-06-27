@@ -20,7 +20,7 @@ import net.minecraft.world.World;
  *   - lastBloodMoon: 上一tick的血月状态, 用于检测变化
  *   - announcementStartTick: 大字提示开始的世界时间tick
  */
-public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.End {
+public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.EndTick {
 
     // 大字提示持续时长 (毫秒)
     private static final long ANNOUNCE_DURATION_MS = 10000L;
