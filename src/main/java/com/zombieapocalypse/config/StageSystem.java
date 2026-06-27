@@ -113,38 +113,47 @@ public class StageSystem {
 
     /**
      * 是否为血月 (随机刷新)
-     * 每天入睡时按概率随机决定第二天是否为血月。
-     * 当前实现: 按天数的伪随机, 平均每 BLOOD_MOON_INTERVAL 天一次。
-     * 使用确定性哈希保证所有玩家/服务端看到同一结果。
+     * 每天按概率随机决定是否为血月, 平均每 BLOOD_MOON_INTERVAL 天一次。
+     * 使用确定性哈希(世界注册键+天数)保证服务端/客户端/所有玩家看到同一结果。
      */
     public static boolean isBloodMoon(World world) {
         int day = getCurrentDay(world);
         if (day <= 0) return false;
-        // 基于(种子+天数)的确定性伪随机, 保证同步
-        long seed = world.getSeed() ^ ((long) day * 2654435761L);
+        long seed = getBloodMoonSeed(world, day);
         java.util.Random rng = new java.util.Random(seed);
-        // 平均概率: 1 / BLOOD_MOON_INTERVAL
         return rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL);
     }
 
     /**
-     * 获取下次血月预测 (用于UI显示倒计时, 因随机性只能给出期望)
-     * 返回当前是否处于血月; 若否则返回剩余期望天数
+     * 获取下次血月预测 (用于UI显示倒计时, 因随机性只能给出预测)
+     * 扫描未来最多 BLOOD_MOON_INTERVAL 天, 返回第一个血月的天数差
      */
     public static int getDaysToNextBloodMoon(World world) {
         if (isBloodMoon(world)) return 0;
-        // 扫描未来最多 BLOOD_MOON_INTERVAL 天, 找到第一个血月
         int currentDay = getCurrentDay(world);
         for (int i = 1; i <= ModConfig.BLOOD_MOON_INTERVAL; i++) {
             int futureDay = currentDay + i;
-            long seed = world.getSeed() ^ ((long) futureDay * 2654435761L);
+            long seed = getBloodMoonSeed(world, futureDay);
             java.util.Random rng = new java.util.Random(seed);
             if (rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL)) {
                 return i;
             }
         }
-        // 未找到则返回期望间隔
         return ModConfig.BLOOD_MOON_INTERVAL;
+    }
+
+    /**
+     * 血月种子: 基于世界注册键的hashCode与天数组合
+     * ServerWorld 可通过 getSeed 获取真实种子, ClientWorld 退化为注册键hashCode
+     */
+    private static long getBloodMoonSeed(World world, int day) {
+        long worldSeed;
+        if (world instanceof net.minecraft.server.world.ServerWorld sw) {
+            worldSeed = sw.getSeed();
+        } else {
+            worldSeed = world.getRegistryKey().hashCode();
+        }
+        return worldSeed ^ ((long) day * 2654435761L);
     }
 
     /**
