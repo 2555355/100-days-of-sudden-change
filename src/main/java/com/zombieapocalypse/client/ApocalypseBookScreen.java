@@ -31,10 +31,10 @@ public class ApocalypseBookScreen extends Screen {
     private static final int PAGE_BODY_Y = 30;     // 正文起始
 
     // 墨色配色(贴合书页, 高可读性)
-    private static final int COLOR_BG_DARK    = 0xF0080606;
-    private static final int COLOR_OVERLAY    = 0x28040003;  // 书页轻微暗化
+    private static final int COLOR_BG_DARK    = 0xB0000000;  // 半透明黑(能看到游戏画面)
+    private static final int COLOR_OVERLAY    = 0x00000000;  // 不再暗化书页
     private static final int COLOR_INK        = 0xFF2A1A0A;  // 主文字(深墨)
-    private static final int COLOR_INK_DIM    = 0xFF6B5A45;  // 次要文字(浅墨)
+    private static final int COLOR_INK_DIM    = 0xFF5A4530;  // 次要文字(浅墨, 加深)
     private static final int COLOR_INK_HI     = 0xFF8B2A0A;  // 强调(暗红墨)
     private static final int COLOR_TITLE      = 0xFF6B1010;  // 标题(深红墨)
     private static final int COLOR_ACCENT     = 0xFFA02020;  // 强调红
@@ -74,9 +74,8 @@ public class ApocalypseBookScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 全屏深色背景
+        // 半透明背景(能看到游戏画面, 不过度遮挡)
         context.fill(0, 0, this.width, this.height, COLOR_BG_DARK);
-        context.fill(0, 0, this.width, this.height / 5, 0x33000000);
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
@@ -85,11 +84,8 @@ public class ApocalypseBookScreen extends Screen {
 
         TextRenderer tr = client.textRenderer;
 
-        // 书本背景纹理(保持原版书页质感, 不加遮罩)
-        context.drawTexture(BOOK_TEXTURE, bookX, bookY, 0, 0, BOOK_W, BOOK_H);
-
-        // 书页极轻微暗化(仅让文字更清晰, 不破坏纸质)
-        context.fill(bookX + 14, bookY + PAGE_TOP, bookX + BOOK_W - 14, bookY + PAGE_BOTTOM, COLOR_OVERLAY);
+        // 书本背景纹理(9参数版本: 指定纹理宽高 292x180, 避免256回绕错位)
+        context.drawTexture(BOOK_TEXTURE, bookX, bookY, 0, 0, BOOK_W, BOOK_H, BOOK_W, BOOK_H);
 
         int leftX = bookX + PAGE_LEFT_X;
         int rightX = bookX + PAGE_RIGHT_X;
@@ -101,23 +97,28 @@ public class ApocalypseBookScreen extends Screen {
         drawChapterHeader(context, tr, leftX, bookY + PAGE_HEADER_Y, PAGE_W, currentSpread);
         drawChapterHeader(context, tr, rightX, bookY + PAGE_HEADER_Y, PAGE_W, currentSpread);
 
-        // 血月横幅(左页标题下)
+        // 血月横幅(左页标题下, 紧凑显示)
         int leftBodyTop = bodyTop;
         if (isBloodMoon) {
-            int bmY = bookY + PAGE_HEADER_Y + 10;
+            int bmY = bookY + PAGE_HEADER_Y + 11;
             context.drawCenteredTextWithShadow(tr, Text.literal("✦ 血月进行中 ✦"),
                     leftX + PAGE_W / 2, bmY, COLOR_BLOOD_MOON);
-            // 装饰线
-            context.fill(leftX + 20, bmY + 10, leftX + PAGE_W - 20, bmY + 11, COLOR_BLOOD_MOON);
-            leftBodyTop = bmY + 14;
+            leftBodyTop = bmY + 11;
         }
+
+        // 用 scissor 裁剪到书页可写区域, 防止内容超出
+        int clipTop = bookY + PAGE_TOP;
+        int clipBottom = bookY + PAGE_BOTTOM;
+        context.enableScissor(bookX + 14, clipTop, bookX + BOOK_W - 14, clipBottom);
 
         // 章节内容
         switch (currentSpread) {
-            case 0 -> renderBasicSpread(context, tr, world, leftX, rightX, leftBodyTop, rightBodyTop(bodyTop), PAGE_W);
+            case 0 -> renderBasicSpread(context, tr, world, leftX, rightX, leftBodyTop, bodyTop, PAGE_W);
             case 1 -> renderZombieSpread(context, tr, world, leftX, rightX, bodyTop, PAGE_W);
             case 2 -> renderGiantSpread(context, tr, world, leftX, rightX, bodyTop, PAGE_W);
         }
+
+        context.disableScissor();
 
         // 翻页按钮
         prevHovered = mouseX >= prevBtnX && mouseX <= prevBtnX + BTN_W && mouseY >= prevBtnY && mouseY <= prevBtnY + BTN_H;
@@ -130,8 +131,6 @@ public class ApocalypseBookScreen extends Screen {
         context.drawCenteredTextWithShadow(tr, Text.literal(pageInfo), bookX + BOOK_W / 2,
                 bookY + BOOK_H - 14, COLOR_INK_DIM);
     }
-
-    private int rightBodyTop(int bodyTop) { return bodyTop; }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -214,41 +213,44 @@ public class ApocalypseBookScreen extends Screen {
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
         int intelLevel = StageSystem.getIntelligenceLevel(world);
 
-        // ===== 左页 =====
+        // ===== 左页: 末日历法 + 进度 + 智能度(合并) =====
         int y = leftTop;
-        // 末日历法
         drawSectionTitle(ctx, tr, leftX, y, pageW, "末日历法", COLOR_GOLD);
         y += 14;
-        String dayStr = String.valueOf(currentDay);
-        drawRow(ctx, tr, leftX, y, pageW, "天数", dayStr + " / " + ModConfig.TOTAL_DAYS, COLOR_INK_HI);
+        drawRow(ctx, tr, leftX, y, pageW, "天数", currentDay + " / " + ModConfig.TOTAL_DAYS, COLOR_INK_HI);
         y += ROW_H;
         int daysToBM = StageSystem.getDaysToNextBloodMoon(world);
         String bmText = isBloodMoon ? "今日血月" : "~" + daysToBM + "天后";
         drawRow(ctx, tr, leftX, y, pageW, "下次血月", bmText,
                 isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK);
         y += ROW_H + 2;
-        // 进度条(简洁双线)
+        // 进度条
         int barX = leftX + 2;
         int barW = pageW - 4;
-        ctx.fill(barX, y, barX + barW, y + 1, 0xFF6B5A45);
+        ctx.fill(barX, y, barX + barW, y + 1, 0xFF8B6B45);
         int filledW = (int) (barW * progress);
         if (filledW > 0) ctx.fill(barX, y, barX + filledW, y + 1, getProgressColor(progress));
         ctx.drawTextWithShadow(tr, Text.literal((int)(progress * 100) + "%"),
                 leftX + pageW / 2 - 6, y + 2, COLOR_INK_DIM);
         y += 14;
-
-        // 智能度
-        drawSectionTitle(ctx, tr, leftX, y, pageW, "智能度", COLOR_ACCENT);
-        y += 14;
+        // 智能度(合并到同页, 减少section)
         String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
         int[] intelColors = {COLOR_GREEN, COLOR_GOLD, 0xFF8B6914, COLOR_DANGER, COLOR_BLOOD_MOON, COLOR_BLOOD_MOON};
-        drawRow(ctx, tr, leftX, y, pageW, "等级", "Lv" + intelLevel, intelColors[intelLevel]);
+        drawRow(ctx, tr, leftX, y, pageW, "智能度", "Lv" + intelLevel + " " + intelNames[intelLevel], intelColors[intelLevel]);
         y += ROW_H;
-        drawRow(ctx, tr, leftX, y, pageW, "命名", intelNames[intelLevel], intelColors[intelLevel]);
-        y += ROW_H + 2;
         drawRow(ctx, tr, leftX, y, pageW, "阶段", getStageTip(currentDay), COLOR_INK_HI);
+        y += ROW_H + 4;
 
-        // ===== 右页 =====
+        // 生存提示(左页下半)
+        drawSectionTitle(ctx, tr, leftX, y, pageW, "生存提示", COLOR_BLUE);
+        y += 14;
+        String[][] tips = getSurvivalTips(currentDay, isBloodMoon);
+        for (String[] t : tips) {
+            ctx.drawTextWithShadow(tr, Text.literal("• " + t[0]), leftX, y, Integer.parseUnsignedInt(t[1], 16));
+            y += ROW_H;
+        }
+
+        // ===== 右页: AI能力 =====
         int ry = rightTop;
         int breakInt = StageSystem.getBreakInterval(world);
         int buildInt = StageSystem.getBuildInterval(world);
@@ -271,14 +273,12 @@ public class ApocalypseBookScreen extends Screen {
                 reinChance > 0 ? COLOR_DANGER : COLOR_INK_DIM);
         ry += ROW_H + 4;
 
-        // 生存提示
-        drawSectionTitle(ctx, tr, rightX, ry, pageW, "生存提示", COLOR_BLUE);
+        // 阶段总览(右页下半)
+        drawSectionTitle(ctx, tr, rightX, ry, pageW, "阶段总览", COLOR_GOLD);
         ry += 14;
-        String[][] tips = getSurvivalTips(currentDay, isBloodMoon);
-        for (String[] t : tips) {
-            ctx.drawTextWithShadow(tr, Text.literal("• " + t[0]), rightX, ry, Integer.parseUnsignedInt(t[1], 16));
-            ry += ROW_H;
-        }
+        ctx.drawTextWithShadow(tr, Text.literal("• 第20天后拆搭方块"), rightX, ry, COLOR_INK); ry += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 第40天后巨型僵尸"), rightX, ry, COLOR_INK); ry += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 血月随机刷新"), rightX, ry, COLOR_INK);
     }
 
     // ===================== 第2展开页: 僵尸档案 =====================
