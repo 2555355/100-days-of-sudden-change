@@ -122,8 +122,9 @@ public class ZombieApocalypseMod implements ModInitializer {
                 spawnChance = (0.15 + stageProgress * 0.2) * bloodMoonMult;
                 spawnCount = (int) Math.max(1, (1 + stage / 25) * bloodMoonMult);
             } else {
-                spawnChance = (0.6 + stageProgress * 0.3) * bloodMoonMult;
-                spawnCount = (int) ((3 + stage / 8) * bloodMoonMult);
+                // 夜晚刷新：概率和数量随阶段增长，但已调低以避免过度拥挤
+                spawnChance = (0.4 + stageProgress * 0.2) * bloodMoonMult;
+                spawnCount = (int) ((2 + stage / 12) * bloodMoonMult);
             }
 
             Random random = world.getRandom();
