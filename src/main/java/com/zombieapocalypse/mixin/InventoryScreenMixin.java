@@ -95,13 +95,13 @@ public abstract class InventoryScreenMixin {
         if (mouseY >= tabY && mouseY <= tabY + TAB_HEIGHT) {
             int tab0X = this.x + 4;
             if (mouseX >= tab0X && mouseX <= tab0X + TAB_WIDTH) {
-                currentTab = 0;
+                currentTab = 1; // 左侧现在是生存背包
                 cir.setReturnValue(true);
                 return;
             }
             int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
             if (mouseX >= tab1X && mouseX <= tab1X + TAB_WIDTH) {
-                currentTab = 1;
+                currentTab = 0; // 右侧现在是末日情报
                 cir.setReturnValue(true);
                 return;
             }
@@ -130,9 +130,9 @@ public abstract class InventoryScreenMixin {
         }
 
         int tab0X = this.x + 4;
-        drawTab(context, tab0X, tabY, "☠", "末日情报", currentTab == 0, hoveredTab == 0);
+        drawTab(context, tab0X, tabY, "⛏", "生存背包", currentTab == 1, hoveredTab == 1);
         int tab1X = tab0X + TAB_WIDTH + TAB_GAP;
-        drawTab(context, tab1X, tabY, "⛏", "生存背包", currentTab == 1, hoveredTab == 1);
+        drawTab(context, tab1X, tabY, "☠", "末日情报", currentTab == 0, hoveredTab == 0);
     }
 
     @Unique
