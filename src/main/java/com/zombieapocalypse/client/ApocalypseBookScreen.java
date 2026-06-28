@@ -11,17 +11,20 @@ import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 /**
- * 末日情报书界面 - v6.0.0
+ * 末日情报书界面 - v6.1.0
  * 全面单页显示: 整页作为一页内容, 不再分左右双页。
- * 6页独立内容, 顶部标题, 中部内容, 底部翻页按钮。
+ * 9页独立内容, 顶部标题, 中部内容, 底部翻页按钮。
  *
- * 页面规划:
- *   1. 封面/目录
- *   2. 末日历法
- *   3. 智能与AI
- *   4. 僵尸档案
- *   5. 战斗特性
- *   6. 巨型僵尸
+ * 页面规划 (内容多的章节拆分为多页, 每页不超过154px):
+ *   P1. 封面/目录
+ *   P2. 末日历法
+ *   P3. 智能与AI - 当前智能度 + AI能力
+ *   P4. 智能与AI - 智能度阶梯
+ *   P5. 僵尸档案 - 基础属性 + 属性范围
+ *   P6. 战斗特性 - 当前加成 + 血月加成
+ *   P7. 战斗特性 - 行为特性 + 威胁警告
+ *   P8. 巨型僵尸 - 属性 + 特殊能力
+ *   P9. 巨型僵尸 - 掉落物
  */
 public class ApocalypseBookScreen extends Screen {
 
@@ -41,7 +44,7 @@ public class ApocalypseBookScreen extends Screen {
     // 翻页按钮位置
     private static final int BTN_W = 23;
     private static final int BTN_H = 12;
-    private static final int TOTAL_PAGES = 6;
+    private static final int TOTAL_PAGES = 9;
 
     // 墨色配色 (高对比度, 适合书页底色)
     private static final int COLOR_BG_DARK    = 0xB0000000;
@@ -58,12 +61,28 @@ public class ApocalypseBookScreen extends Screen {
     private static final int COLOR_BLUE       = 0xFF1A3A6B;
     private static final int COLOR_DIVIDER    = 0x558B6B45;
 
-    // 6页章节标题
+    // 9页章节标题
     private static final String[] PAGE_TITLES = {
-            "末日情报 · 目录", "末日历法", "智能与AI", "僵尸档案", "战斗特性", "巨型僵尸"
+            "末日情报 · 目录",   // P1
+            "末日历法",          // P2
+            "智能与AI · 能力",   // P3
+            "智能度阶梯",        // P4
+            "僵尸档案 · 属性",   // P5
+            "战斗特性 · 加成",   // P6
+            "战斗特性 · 行为",   // P7
+            "巨型僵尸 · 档案",   // P8
+            "巨型僵尸 · 掉落"    // P9
     };
     private static final int[] PAGE_COLORS = {
-            COLOR_GOLD, COLOR_GOLD, COLOR_ACCENT, COLOR_ZOMBIE, COLOR_INK_HI, COLOR_GIANT
+            COLOR_GOLD,     // P1
+            COLOR_GOLD,     // P2
+            COLOR_ACCENT,   // P3
+            COLOR_ACCENT,   // P4
+            COLOR_ZOMBIE,   // P5
+            COLOR_BLUE,     // P6
+            COLOR_INK_HI,   // P7
+            COLOR_GIANT,    // P8
+            COLOR_GOLD      // P9
     };
 
     private int bookX, bookY;
@@ -146,10 +165,13 @@ public class ApocalypseBookScreen extends Screen {
         switch (page) {
             case 0 -> renderCoverPage(ctx, tr, world, x, contentY, w);
             case 1 -> renderCalendarPage(ctx, tr, world, x, contentY, w);
-            case 2 -> renderIntelligencePage(ctx, tr, world, x, contentY, w);
-            case 3 -> renderZombieStatsPage(ctx, tr, world, x, contentY, w);
-            case 4 -> renderZombieBehaviorPage(ctx, tr, world, x, contentY, w);
-            case 5 -> renderGiantPage(ctx, tr, world, x, contentY, w);
+            case 2 -> renderIntelligenceAbilityPage(ctx, tr, world, x, contentY, w);
+            case 3 -> renderIntelligenceTierPage(ctx, tr, world, x, contentY, w);
+            case 4 -> renderZombieStatsPage(ctx, tr, world, x, contentY, w);
+            case 5 -> renderCombatBuffPage(ctx, tr, world, x, contentY, w);
+            case 6 -> renderCombatBehaviorPage(ctx, tr, world, x, contentY, w);
+            case 7 -> renderGiantStatsPage(ctx, tr, world, x, contentY, w);
+            case 8 -> renderGiantDropsPage(ctx, tr, world, x, contentY, w);
         }
     }
 
@@ -159,7 +181,7 @@ public class ApocalypseBookScreen extends Screen {
         ctx.fill(x + 60, y + 11, x + w - 60, y + 12, color);
     }
 
-    // ===================== 第1页: 封面/目录 =====================
+    // ===================== P1: 封面/目录 =====================
 
     private void renderCoverPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         int currentDay = StageSystem.getCurrentStage(world);
@@ -179,17 +201,20 @@ public class ApocalypseBookScreen extends Screen {
         drawSectionTitle(ctx, tr, x, cy, w, "目录索引", COLOR_ACCENT); cy += 13;
         String[][] toc = {
                 {"P2", "末日历法"},
-                {"P3", "智能与AI"},
-                {"P4", "僵尸档案"},
-                {"P5", "战斗特性"},
-                {"P6", "巨型僵尸"}
+                {"P3", "智能与AI · 能力"},
+                {"P4", "智能度阶梯"},
+                {"P5", "僵尸档案 · 属性"},
+                {"P6", "战斗特性 · 加成"},
+                {"P7", "战斗特性 · 行为"},
+                {"P8", "巨型僵尸 · 档案"},
+                {"P9", "巨型僵尸 · 掉落"}
         };
         for (String[] e : toc) {
             ctx.drawTextWithShadow(tr, Text.literal(e[0] + "    " + e[1]), x, cy, COLOR_INK); cy += ROW_H;
         }
     }
 
-    // ===================== 第2页: 末日历法 =====================
+    // ===================== P2: 末日历法 =====================
 
     private void renderCalendarPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         int currentDay = StageSystem.getCurrentStage(world);
@@ -227,9 +252,9 @@ public class ApocalypseBookScreen extends Screen {
         }
     }
 
-    // ===================== 第3页: 智能与AI =====================
+    // ===================== P3: 智能与AI - 能力 =====================
 
-    private void renderIntelligencePage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+    private void renderIntelligenceAbilityPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         int intelLevel = StageSystem.getIntelligenceLevel(world);
         int breakInt = StageSystem.getBreakInterval(world);
         int buildInt = StageSystem.getBuildInterval(world);
@@ -255,21 +280,57 @@ public class ApocalypseBookScreen extends Screen {
         drawRow(ctx, tr, x, cy, w, "呼叫增援", reinStr,
                 reinChance > 0 ? COLOR_DANGER : COLOR_INK_DIM); cy += ROW_H + 4;
 
-        drawSectionTitle(ctx, tr, x, cy, w, "智能度阶梯", COLOR_GOLD); cy += 13;
-        String[][] tiers = {
-                {"Lv0 1-10天  迟钝", "FF2A6B2A"},
-                {"Lv1 11-20天 普通", "FF8B6914"},
-                {"Lv2 21-30天 机敏", "FF8B6914"},
-                {"Lv3 31-50天 狡猾", "FFB01818"}
-        };
-        for (String[] t : tiers) {
-            ctx.drawTextWithShadow(tr, Text.literal(t[0]), x, cy,
-                    Integer.parseUnsignedInt(t[1], 16));
-            cy += ROW_H;
-        }
+        drawSectionTitle(ctx, tr, x, cy, w, "AI行为说明", COLOR_GOLD); cy += 13;
+        ctx.drawTextWithShadow(tr, Text.literal("• 第20天后开始拆搭方块"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 优先破坏门窗玻璃"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 朝玩家方向搭楼梯追击"), x, cy, COLOR_INK);
     }
 
-    // ===================== 第4页: 僵尸档案 =====================
+    // ===================== P4: 智能度阶梯 =====================
+
+    private void renderIntelligenceTierPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+        int intelLevel = StageSystem.getIntelligenceLevel(world);
+
+        int cy = y;
+        drawSectionTitle(ctx, tr, x, cy, w, "智能度阶梯 (6级)", COLOR_ACCENT); cy += 13;
+
+        // 表头
+        ctx.drawTextWithShadow(tr, Text.literal("等级"), x, cy, COLOR_INK_DIM); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("天数范围 / 命名 / 特征"),
+                x + 30, cy - ROW_H, COLOR_INK_DIM);
+
+        // 6级详细
+        String[][] tiers = {
+                {"Lv0", "1-10天",   "迟钝", "FF2A6B2A", "基础僵尸, 仅追击"},
+                {"Lv1", "11-20天",  "普通", "FF8B6914", "开始拆搭方块"},
+                {"Lv2", "21-30天",  "机敏", "FF8B6914", "可呼叫增援"},
+                {"Lv3", "31-50天",  "狡猾", "FFB01818", "硬度上限提升"},
+                {"Lv4", "51-70天",  "凶残", "FFCC0000", "库存容量翻倍"},
+                {"Lv5", "71-100天", "嗜血", "FFCC0000", "拆搭速度极快"}
+        };
+        for (String[] t : tiers) {
+            int color = Integer.parseUnsignedInt(t[3], 16);
+            // 等级标签
+            ctx.drawTextWithShadow(tr, Text.literal(t[0]), x, cy, color);
+            // 天数+命名
+            ctx.drawTextWithShadow(tr, Text.literal(t[1] + " " + t[2]),
+                    x + 30, cy, color);
+            // 特征
+            ctx.drawTextWithShadow(tr, Text.literal(t[4]),
+                    x + 130, cy, COLOR_INK);
+            cy += ROW_H;
+        }
+        cy += 4;
+
+        // 当前等级高亮提示
+        drawSectionTitle(ctx, tr, x, cy, w, "当前等级", COLOR_GOLD); cy += 13;
+        String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
+        int[] intelColors = {COLOR_GREEN, COLOR_GOLD, 0xFF8B6914, COLOR_DANGER, COLOR_BLOOD_MOON, COLOR_BLOOD_MOON};
+        ctx.drawTextWithShadow(tr, Text.literal("→ Lv" + intelLevel + " " + intelNames[intelLevel]),
+                x, cy, intelColors[intelLevel]);
+    }
+
+    // ===================== P5: 僵尸档案 - 属性 =====================
 
     private void renderZombieStatsPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         double health = StageSystem.getZombieHealth(world);
@@ -280,7 +341,7 @@ public class ApocalypseBookScreen extends Screen {
         double spdMult = StageSystem.getSpeedMultiplier(world, 1.0f);
 
         int cy = y;
-        drawSectionTitle(ctx, tr, x, cy, w, "基础属性", COLOR_ZOMBIE); cy += 13;
+        drawSectionTitle(ctx, tr, x, cy, w, "基础属性 (当前)", COLOR_ZOMBIE); cy += 13;
         drawRowExtra(ctx, tr, x, cy, w, "血量", String.format("%.0f", health),
                 String.format("(x%.1f)", health / 20), COLOR_DANGER); cy += ROW_H;
         drawRowExtra(ctx, tr, x, cy, w, "攻击", String.format("%.1f", attack),
@@ -295,19 +356,20 @@ public class ApocalypseBookScreen extends Screen {
         drawRow(ctx, tr, x, cy, w, "护甲", "2 → 12", COLOR_INK); cy += ROW_H;
         drawRow(ctx, tr, x, cy, w, "速度", "0.23 → 0.35", COLOR_INK); cy += ROW_H + 4;
 
-        drawSectionTitle(ctx, tr, x, cy, w, "血月加成", COLOR_BLOOD_MOON); cy += 13;
-        drawRow(ctx, tr, x, cy, w, "攻击倍率", "+20%", COLOR_BLOOD_MOON); cy += ROW_H;
-        drawRow(ctx, tr, x, cy, w, "速度倍率", "+30%", COLOR_BLOOD_MOON);
+        drawSectionTitle(ctx, tr, x, cy, w, "其他特性", COLOR_BLUE); cy += 13;
+        ctx.drawTextWithShadow(tr, Text.literal("• 防白天燃烧"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 白天也可生成 (倍率0.6)"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 低血量(<30%)狂暴 +50%速"), x, cy, COLOR_DANGER);
     }
 
-    // ===================== 第5页: 战斗特性 =====================
+    // ===================== P6: 战斗特性 - 加成 =====================
 
-    private void renderZombieBehaviorPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+    private void renderCombatBuffPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
         boolean isNight = !world.isDay();
 
         int cy = y;
-        drawSectionTitle(ctx, tr, x, cy, w, "当前加成", COLOR_BLUE); cy += 13;
+        drawSectionTitle(ctx, tr, x, cy, w, "当前加成状态", COLOR_BLUE); cy += 13;
         drawRow(ctx, tr, x, cy, w, "夜晚速度", isNight ? "+15% 激活" : "未激活",
                 isNight ? COLOR_GREEN : COLOR_INK_DIM); cy += ROW_H;
         drawRow(ctx, tr, x, cy, w, "血月速度", isBloodMoon ? "+30% 激活" : "未激活",
@@ -316,6 +378,24 @@ public class ApocalypseBookScreen extends Screen {
                 isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK_DIM); cy += ROW_H;
         drawRow(ctx, tr, x, cy, w, "低血狂暴", "<30% +50%速", COLOR_DANGER); cy += ROW_H + 4;
 
+        drawSectionTitle(ctx, tr, x, cy, w, "血月加成详情", COLOR_BLOOD_MOON); cy += 13;
+        drawRow(ctx, tr, x, cy, w, "攻击倍率", "+20%", COLOR_BLOOD_MOON); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "速度倍率", "+30%", COLOR_BLOOD_MOON); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "刷新倍率", "x2.0", COLOR_BLOOD_MOON); cy += ROW_H + 4;
+
+        drawSectionTitle(ctx, tr, x, cy, w, "夜晚加成详情", COLOR_GREEN); cy += 13;
+        drawRow(ctx, tr, x, cy, w, "速度倍率", "+15%", COLOR_GREEN); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "生成密度", "提高", COLOR_GREEN); cy += ROW_H + 4;
+
+        drawSectionTitle(ctx, tr, x, cy, w, "狂暴机制", COLOR_DANGER); cy += 13;
+        ctx.drawTextWithShadow(tr, Text.literal("• 血量<30%时触发"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 速度额外+50%"), x, cy, COLOR_DANGER);
+    }
+
+    // ===================== P7: 战斗特性 - 行为 =====================
+
+    private void renderCombatBehaviorPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+        int cy = y;
         drawSectionTitle(ctx, tr, x, cy, w, "行为特性", COLOR_INK_HI); cy += 13;
         String[] behaviors = {
                 "• 防白天燃烧",
@@ -323,21 +403,28 @@ public class ApocalypseBookScreen extends Screen {
                 "• 优先破坏门窗玻璃",
                 "• 卡住时加速突破",
                 "• 朝玩家方向搭楼梯",
-                "• 空中搭天桥追击"
+                "• 空中搭天桥追击",
+                "• 玩家在上方时塔式堆叠",
+                "• 玩家在下方时破坏头顶"
         };
         for (String b : behaviors) {
             ctx.drawTextWithShadow(tr, Text.literal(b), x, cy, COLOR_INK); cy += ROW_H;
         }
         cy += 4;
 
+        drawSectionTitle(ctx, tr, x, cy, w, "拆搭方块机制", COLOR_GOLD); cy += 13;
+        drawRow(ctx, tr, x, cy, w, "解锁条件", "第20天后", COLOR_INK_HI); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "拆方块", "破坏阻挡方块", COLOR_INK); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "搭方块", "用破坏的方块", COLOR_INK); cy += ROW_H + 4;
+
         drawSectionTitle(ctx, tr, x, cy, w, "威胁警告", COLOR_DANGER); cy += 13;
         ctx.drawTextWithShadow(tr, Text.literal("• 高墙无法完全阻挡"), x, cy, COLOR_DANGER); cy += ROW_H;
         ctx.drawTextWithShadow(tr, Text.literal("• 备足武器与药水"), x, cy, COLOR_DANGER);
     }
 
-    // ===================== 第6页: 巨型僵尸 =====================
+    // ===================== P8: 巨型僵尸 - 档案 =====================
 
-    private void renderGiantPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+    private void renderGiantStatsPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
         double health = StageSystem.getGiantZombieHealth(world);
         double attack = StageSystem.getGiantZombieAttack(world);
         double chance = StageSystem.getGiantZombieChance(world);
@@ -368,12 +455,33 @@ public class ApocalypseBookScreen extends Screen {
         }
         cy += 4;
 
-        drawSectionTitle(ctx, tr, x, cy, w, "掉落物", COLOR_GOLD); cy += 13;
+        drawSectionTitle(ctx, tr, x, cy, w, "出现条件", COLOR_GOLD); cy += 13;
+        drawRow(ctx, tr, x, cy, w, "起始天数", "第40天", COLOR_INK_HI); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "血月加成", "概率+属性提升", COLOR_BLOOD_MOON); cy += ROW_H;
+        drawRow(ctx, tr, x, cy, w, "威胁等级", "极高", COLOR_DANGER);
+    }
+
+    // ===================== P9: 巨型僵尸 - 掉落物 =====================
+
+    private void renderGiantDropsPage(DrawContext ctx, TextRenderer tr, World world, int x, int y, int w) {
+        int cy = y;
+        drawSectionTitle(ctx, tr, x, cy, w, "掉落物一览", COLOR_GOLD); cy += 13;
         ctx.drawTextWithShadow(tr, Text.literal("• 腐肉 3-8  ·  骨头 3-6"), x, cy, COLOR_INK); cy += ROW_H;
         ctx.drawTextWithShadow(tr, Text.literal("• 铁锭 2-5  ·  金锭 1-3"), x, cy, COLOR_INK); cy += ROW_H;
         ctx.drawTextWithShadow(tr, Text.literal("• 钻石 0-2  ·  绿宝石 0-3"), x, cy, COLOR_INK_HI); cy += ROW_H;
         ctx.drawTextWithShadow(tr, Text.literal("• 附魔金苹果 0-1"), x, cy, COLOR_GIANT); cy += ROW_H;
-        ctx.drawTextWithShadow(tr, Text.literal("• 经验瓶 1-5"), x, cy, COLOR_GREEN);
+        ctx.drawTextWithShadow(tr, Text.literal("• 经验瓶 1-5"), x, cy, COLOR_GREEN); cy += ROW_H + 4;
+
+        drawSectionTitle(ctx, tr, x, cy, w, "掉落说明", COLOR_BLUE); cy += 13;
+        ctx.drawTextWithShadow(tr, Text.literal("• 击杀后掉落物散落地面"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 附魔金苹果概率较低"), x, cy, COLOR_GIANT); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 经验瓶可获大量经验"), x, cy, COLOR_GREEN); cy += ROW_H + 4;
+
+        drawSectionTitle(ctx, tr, x, cy, w, "应对建议", COLOR_DANGER); cy += 13;
+        ctx.drawTextWithShadow(tr, Text.literal("• 保持距离用弓箭攻击"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 利用地形卡位击杀"), x, cy, COLOR_INK); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 准备附魔钻石装备"), x, cy, COLOR_DANGER); cy += ROW_H;
+        ctx.drawTextWithShadow(tr, Text.literal("• 血月时尽量避免交战"), x, cy, COLOR_BLOOD_MOON);
     }
 
     // ===================== 辅助方法 =====================
