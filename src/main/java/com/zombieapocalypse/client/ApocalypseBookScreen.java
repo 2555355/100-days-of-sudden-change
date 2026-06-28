@@ -2,15 +2,17 @@ package com.zombieapocalypse.client;
 
 import com.zombieapocalypse.config.ModConfig;
 import com.zombieapocalypse.config.StageSystem;
-import net.minecraft.class_1937;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_327;
-import net.minecraft.class_332;
-import net.minecraft.class_437;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.world.World;
 
 /**
- * 末日情报界面 - 修正版（intermediary 命名，可直接编进 .class 替换原文件）
+ * 末日情报界面 - 修正版（Yarn 映射，适用于 Fabric Loom 源码工程）
  *
  * 修复点：
  *  1. 不再复用原版双页 book.png，改自绘羊皮纸面板，消除书脊错位
@@ -18,8 +20,10 @@ import net.minecraft.class_437;
  *  3. 去掉非法 "§ " 格式化前缀
  *  4. 翻页按钮 bg/border 在所有分支都赋值
  *  5. 标题分隔线/页码居中改为基于宽度的动态计算
+ *  6. 字体兼容：◀▶→< >，•→*，·→-（→ 保留，字体已覆盖）
+ *  7. 压缩行距（ROW_H 11→10，段间距 15→13）防止内容溢出裁剪
  */
-public class ApocalypseBookScreen extends class_437 {
+public class ApocalypseBookScreen extends Screen {
 
     private static final int PANEL_W = 256;
     private static final int PANEL_H = 180;
@@ -62,12 +66,13 @@ public class ApocalypseBookScreen extends class_437 {
     private boolean prevHovered, nextHovered;
 
     public ApocalypseBookScreen() {
-        super((class_2561) class_2561.method_43470("末日情报"));
+        super(Text.literal("末日情报"));
     }
 
-    protected void method_25426() {
-        this.panelX = (this.field_22789 - PANEL_W) / 2;
-        this.panelY = (this.field_22790 - PANEL_H) / 2;
+    @Override
+    protected void init() {
+        this.panelX = (this.width - PANEL_W) / 2;
+        this.panelY = (this.height - PANEL_H) / 2;
         this.contentX = this.panelX + BORDER;
         this.contentY = this.panelY + BORDER;
         int btnY = this.panelY + PANEL_H - 18;
@@ -76,20 +81,22 @@ public class ApocalypseBookScreen extends class_437 {
         this.prevBtnY = this.nextBtnY = btnY;
     }
 
-    public void method_25394(class_332 ctx, int mouseX, int mouseY, float delta) {
-        ctx.method_25294(0, 0, this.field_22789, this.field_22790, COLOR_OVERLAY);
-        class_310 client = class_310.method_1551();
-        if (client.field_1724 == null) return;
-        class_1937 world = client.field_1724.method_37908();
+    @Override
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        ctx.fill(0, 0, this.width, this.height, COLOR_OVERLAY);
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        ClientPlayerEntity player = client.player;
+        World world = player.getWorld();
         if (world == null) return;
-        class_327 tr = client.field_1772;
+        TextRenderer tr = client.textRenderer;
 
         this.drawPanelBackground(ctx);
 
-        ctx.method_44379(this.contentX, this.contentY,
-                         this.contentX + CONTENT_W, this.contentY + CONTENT_H);
+        ctx.enableScissor(this.contentX, this.contentY,
+                          this.contentX + CONTENT_W, this.contentY + CONTENT_H);
         this.renderPage(ctx, tr, world, this.contentX, this.contentY, CONTENT_W, this.currentPage);
-        ctx.method_44380();
+        ctx.disableScissor();
 
         this.prevHovered = this.inBounds(mouseX, mouseY, this.prevBtnX, this.prevBtnY, 23, 12);
         this.nextHovered = this.inBounds(mouseX, mouseY, this.nextBtnX, this.nextBtnY, 23, 12);
@@ -99,20 +106,20 @@ public class ApocalypseBookScreen extends class_437 {
                 this.currentPage < TOTAL_PAGES - 1, this.nextHovered);
 
         String pageInfo = (this.currentPage + 1) + " / " + TOTAL_PAGES;
-        ctx.method_27534(tr, (class_2561) class_2561.method_43470(pageInfo),
+        ctx.drawCenteredTextWithShadow(tr, Text.literal(pageInfo),
                 this.panelX + PANEL_W / 2, this.prevBtnY + 2, COLOR_INK_DIM);
     }
 
-    private void drawPanelBackground(class_332 ctx) {
+    private void drawPanelBackground(DrawContext ctx) {
         int x0 = this.panelX, y0 = this.panelY;
         int x1 = x0 + PANEL_W, y1 = y0 + PANEL_H;
-        ctx.method_25294(x0 - 1, y0 - 1, x1 + 1, y1 + 1, COLOR_PANEL_BORDER);
-        ctx.method_25294(x0, y0, x1, y1, COLOR_PANEL_BG);
-        ctx.method_25294(x0 + 2, y0 + 2, x1 - 2, y1 - 2, COLOR_PANEL_INNER);
-        ctx.method_25294(x0 + 3, y0 + 3, x1 - 3, y1 - 3, COLOR_PANEL_BG);
+        ctx.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, COLOR_PANEL_BORDER);
+        ctx.fill(x0, y0, x1, y1, COLOR_PANEL_BG);
+        ctx.fill(x0 + 2, y0 + 2, x1 - 2, y1 - 2, COLOR_PANEL_INNER);
+        ctx.fill(x0 + 3, y0 + 3, x1 - 3, y1 - 3, COLOR_PANEL_BG);
     }
 
-    private void renderPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderPage(DrawContext ctx, TextRenderer tr, World world,
                             int x, int y, int w, int page) {
         this.drawTitle(ctx, tr, x, y, w, PAGE_TITLES[page], PAGE_COLORS[page]);
         int bodyY = y + 16;
@@ -124,44 +131,44 @@ public class ApocalypseBookScreen extends class_437 {
         else if (page == 5) this.renderGiantPage(ctx, tr, world, x, bodyY, w);
     }
 
-    private void drawTitle(class_332 ctx, class_327 tr, int x, int y, int w,
+    private void drawTitle(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                            String title, int color) {
-        ctx.method_27534(tr, (class_2561) class_2561.method_43470(title), x + w / 2, y, color);
+        ctx.drawCenteredTextWithShadow(tr, Text.literal(title), x + w / 2, y, color);
         int lineW = (int) (w * 0.6);
         int lx = x + (w - lineW) / 2;
-        ctx.method_25294(lx, y + 12, lx + lineW, y + 13, color);
+        ctx.fill(lx, y + 12, lx + lineW, y + 13, color);
     }
 
-    private void drawSectionTitle(class_332 ctx, class_327 tr, int x, int y, int w,
+    private void drawSectionTitle(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                                   String title, int color) {
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470(title), x, y, color);
-        ctx.method_25294(x, y + 10, x + w, y + 11, COLOR_DIVIDER);
+        ctx.drawText(tr, Text.literal(title), x, y, color, false);
+        ctx.fill(x, y + 10, x + w, y + 11, COLOR_DIVIDER);
     }
 
-    private void drawRow(class_332 ctx, class_327 tr, int x, int y, int w,
+    private void drawRow(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                          String label, String value, int valueColor) {
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470(label), x, y, COLOR_INK_DIM);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470(value),
-                x + w - tr.method_1727(value), y, valueColor);
+        ctx.drawText(tr, Text.literal(label), x, y, COLOR_INK_DIM, false);
+        ctx.drawText(tr, Text.literal(value),
+                x + w - tr.getWidth(value), y, valueColor, false);
     }
 
-    private void drawRowExtra(class_332 ctx, class_327 tr, int x, int y, int w,
+    private void drawRowExtra(DrawContext ctx, TextRenderer tr, int x, int y, int w,
                               String label, String value, String extra, int valueColor) {
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470(label), x, y, COLOR_INK_DIM);
+        ctx.drawText(tr, Text.literal(label), x, y, COLOR_INK_DIM, false);
         if (extra == null || extra.isEmpty()) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(value),
-                    x + w - tr.method_1727(value), y, valueColor);
+            ctx.drawText(tr, Text.literal(value),
+                    x + w - tr.getWidth(value), y, valueColor, false);
         } else {
-            int extraW = tr.method_1727(extra);
-            int valueW = tr.method_1727(value);
+            int extraW = tr.getWidth(extra);
+            int valueW = tr.getWidth(value);
             int extraX = x + w - extraW;
             int valX = extraX - 3 - valueW;
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(value), valX, y, valueColor);
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(extra), extraX, y, COLOR_INK_DIM);
+            ctx.drawText(tr, Text.literal(value), valX, y, valueColor, false);
+            ctx.drawText(tr, Text.literal(extra), extraX, y, COLOR_INK_DIM, false);
         }
     }
 
-    private void drawPageButton(class_332 ctx, class_327 tr, int x, int y,
+    private void drawPageButton(DrawContext ctx, TextRenderer tr, int x, int y,
                                 String arrow, boolean enabled, boolean hovered) {
         int bg, border, col;
         if (!enabled) {
@@ -171,15 +178,15 @@ public class ApocalypseBookScreen extends class_437 {
         } else {
             bg = 0x886B4A1F; border = 0xFF8B6914; col = 0xFF2A1A0A;
         }
-        ctx.method_25294(x, y, x + 23, y + 12, bg);
-        ctx.method_25294(x, y, x + 23, y + 1, border);
-        ctx.method_25294(x, y + 11, x + 23, y + 12, border);
-        ctx.method_25294(x, y, x + 1, y + 12, border);
-        ctx.method_25294(x + 22, y, x + 23, y + 12, border);
-        ctx.method_27534(tr, (class_2561) class_2561.method_43470(arrow), x + 11, y + 2, col);
+        ctx.fill(x, y, x + 23, y + 12, bg);
+        ctx.fill(x, y, x + 23, y + 1, border);
+        ctx.fill(x, y + 11, x + 23, y + 12, border);
+        ctx.fill(x, y, x + 1, y + 12, border);
+        ctx.fill(x + 22, y, x + 23, y + 12, border);
+        ctx.drawCenteredTextWithShadow(tr, Text.literal(arrow), x + 11, y + 2, col);
     }
 
-    private void renderCoverPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderCoverPage(DrawContext ctx, TextRenderer tr, World world,
                                  int x, int y, int w) {
         int currentDay = StageSystem.getCurrentStage(world);
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
@@ -205,12 +212,12 @@ public class ApocalypseBookScreen extends class_437 {
             {"P4", "僵尸档案"}, {"P5", "战斗特性"}, {"P6", "巨型僵尸"}
         };
         for (String[] e : toc) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(e[0] + "    " + e[1]), x, cy, COLOR_INK);
+            ctx.drawText(tr, Text.literal(e[0] + "    " + e[1]), x, cy, COLOR_INK, false);
             cy += ROW_H;
         }
     }
 
-    private void renderCalendarPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderCalendarPage(DrawContext ctx, TextRenderer tr, World world,
                                     int x, int y, int w) {
         int currentDay = StageSystem.getCurrentStage(world);
         double progress = StageSystem.getStageProgress(world);
@@ -223,15 +230,15 @@ public class ApocalypseBookScreen extends class_437 {
                 this.getStageTip(currentDay), COLOR_INK_HI);
 
         int barX = x, barW = w;
-        ctx.method_25294(barX, cy += 13, barX + barW, cy + 2, COLOR_INK_DIM);
+        ctx.fill(barX, cy += 13, barX + barW, cy + 2, COLOR_INK_DIM);
         int filledW = (int) (barW * progress);
         if (filledW > 0) {
-            ctx.method_25294(barX, cy, barX + filledW, cy + 2, this.getProgressColor(progress));
+            ctx.fill(barX, cy, barX + filledW, cy + 2, this.getProgressColor(progress));
         }
-        ctx.method_27534(tr, (class_2561) class_2561.method_43470((int) (progress * 100) + "%"),
+        ctx.drawCenteredTextWithShadow(tr, Text.literal((int) (progress * 100) + "%"),
                 x + w / 2, cy + 3, COLOR_INK_DIM);
 
-        this.drawSectionTitle(ctx, tr, x, cy += 12, w, "血月周期", COLOR_BLOOD_MOON);
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "血月周期", COLOR_BLOOD_MOON);
         int daysToBM = StageSystem.getDaysToNextBloodMoon(world);
         String bmText = isBloodMoon ? "今日血月" : "~" + daysToBM + "天后";
         this.drawRow(ctx, tr, x, cy += 13, w, "下次血月", bmText,
@@ -243,13 +250,13 @@ public class ApocalypseBookScreen extends class_437 {
         this.drawSectionTitle(ctx, tr, x, cy += 13, w, "生存提示", COLOR_BLUE);
         cy += 13;
         for (String[] t : this.getSurvivalTips(currentDay, isBloodMoon)) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470("* " + t[0]), x, cy,
-                    Integer.parseUnsignedInt(t[1], 16));
+            ctx.drawText(tr, Text.literal("* " + t[0]), x, cy,
+                    Integer.parseUnsignedInt(t[1], 16), false);
             cy += ROW_H;
         }
     }
 
-    private void renderIntelligencePage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderIntelligencePage(DrawContext ctx, TextRenderer tr, World world,
                                         int x, int y, int w) {
         int intelLevel = StageSystem.getIntelligenceLevel(world);
         int breakInt = StageSystem.getBreakInterval(world);
@@ -284,13 +291,13 @@ public class ApocalypseBookScreen extends class_437 {
             {"Lv3  31-50天  狡猾", "FFB01818"}
         };
         for (String[] t : tiers) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(t[0]), x, cy,
-                    Integer.parseUnsignedInt(t[1], 16));
+            ctx.drawText(tr, Text.literal(t[0]), x, cy,
+                    Integer.parseUnsignedInt(t[1], 16), false);
             cy += ROW_H;
         }
     }
 
-    private void renderZombieStatsPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderZombieStatsPage(DrawContext ctx, TextRenderer tr, World world,
                                        int x, int y, int w) {
         double health = StageSystem.getZombieHealth(world);
         double attack = StageSystem.getZombieAttack(world);
@@ -319,10 +326,10 @@ public class ApocalypseBookScreen extends class_437 {
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "速度倍率", "+30%", COLOR_BLOOD_MOON);
     }
 
-    private void renderZombieBehaviorPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderZombieBehaviorPage(DrawContext ctx, TextRenderer tr, World world,
                                           int x, int y, int w) {
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
-        boolean isNight = !world.method_8530();
+        boolean isNight = !world.isDay();
         int cy = y;
         this.drawSectionTitle(ctx, tr, x, cy, w, "当前加成", COLOR_BLUE);
         this.drawRow(ctx, tr, x, cy += 13, w, "夜晚速度",
@@ -347,16 +354,16 @@ public class ApocalypseBookScreen extends class_437 {
             "* 空中搭天桥追击"
         };
         for (String b : behaviors) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(b), x, cy, COLOR_INK);
+            ctx.drawText(tr, Text.literal(b), x, cy, COLOR_INK, false);
             cy += ROW_H;
         }
 
         this.drawSectionTitle(ctx, tr, x, cy += 4, w, "威胁警告", COLOR_DANGER);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 高墙无法完全阻挡"), x, cy += 13, COLOR_DANGER);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 备足武器与药水"), x, cy += ROW_H, COLOR_DANGER);
+        ctx.drawText(tr, Text.literal("* 高墙无法完全阻挡"), x, cy += 13, COLOR_DANGER, false);
+        ctx.drawText(tr, Text.literal("* 备足武器与药水"), x, cy += ROW_H, COLOR_DANGER, false);
     }
 
-    private void renderGiantPage(class_332 ctx, class_327 tr, class_1937 world,
+    private void renderGiantPage(DrawContext ctx, TextRenderer tr, World world,
                                  int x, int y, int w) {
         double health = StageSystem.getGiantZombieHealth(world);
         double attack = StageSystem.getGiantZombieAttack(world);
@@ -379,16 +386,16 @@ public class ApocalypseBookScreen extends class_437 {
             "* 防火免疫", "* 血月时属性增强"
         };
         for (String a : abilities) {
-            ctx.method_27535(tr, (class_2561) class_2561.method_43470(a), x, cy, COLOR_GIANT);
+            ctx.drawText(tr, Text.literal(a), x, cy, COLOR_GIANT, false);
             cy += ROW_H;
         }
 
         this.drawSectionTitle(ctx, tr, x, cy += 4, w, "掉落物", COLOR_GOLD);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 腐肉 3-8  -  骨头 3-6"), x, cy += 13, COLOR_INK);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 铁锭 2-5  -  金锭 1-3"), x, cy += ROW_H, COLOR_INK);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 钻石 0-2  -  绿宝石 0-3"), x, cy += ROW_H, COLOR_INK_HI);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 附魔金苹果 0-1"), x, cy += ROW_H, COLOR_GIANT);
-        ctx.method_27535(tr, (class_2561) class_2561.method_43470("* 经验瓶 1-5"), x, cy += ROW_H, COLOR_GREEN);
+        ctx.drawText(tr, Text.literal("* 腐肉 3-8  -  骨头 3-6"), x, cy += 13, COLOR_INK, false);
+        ctx.drawText(tr, Text.literal("* 铁锭 2-5  -  金锭 1-3"), x, cy += ROW_H, COLOR_INK, false);
+        ctx.drawText(tr, Text.literal("* 钻石 0-2  -  绿宝石 0-3"), x, cy += ROW_H, COLOR_INK_HI, false);
+        ctx.drawText(tr, Text.literal("* 附魔金苹果 0-1"), x, cy += ROW_H, COLOR_GIANT, false);
+        ctx.drawText(tr, Text.literal("* 经验瓶 1-5"), x, cy += ROW_H, COLOR_GREEN, false);
     }
 
     private boolean inBounds(int mx, int my, int x, int y, int w, int h) {
@@ -438,7 +445,8 @@ public class ApocalypseBookScreen extends class_437 {
         };
     }
 
-    public boolean method_25402(double mouseX, double mouseY, int button) {
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (this.prevHovered && this.currentPage > 0) {
             this.currentPage--;
             return true;
@@ -447,10 +455,11 @@ public class ApocalypseBookScreen extends class_437 {
             this.currentPage++;
             return true;
         }
-        return super.method_25402(mouseX, mouseY, button);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    public boolean method_25421() {
+    @Override
+    public boolean shouldPause() {
         return false;
     }
 }
