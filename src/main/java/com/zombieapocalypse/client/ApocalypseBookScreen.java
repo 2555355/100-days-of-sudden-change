@@ -31,7 +31,7 @@ public class ApocalypseBookScreen extends Screen {
     private static final int CONTENT_W = PANEL_W - BORDER * 2;
     private static final int CONTENT_H = PANEL_H - BORDER * 2;
     private static final int ROW_H = 10;
-    private static final int TOTAL_PAGES = 9;
+    private static final int TOTAL_PAGES = 12;
 
     private static final int COLOR_OVERLAY     = 0x80000000;
     private static final int COLOR_PANEL_BG    = 0xFFF4E3C1;
@@ -51,14 +51,24 @@ public class ApocalypseBookScreen extends Screen {
     private static final int COLOR_DIVIDER     = 0x556B4A1F;
 
     private static final String[] PAGE_TITLES = {
-        "末日情报 - 目录", "末日历法", "智能与AI - 能力",
-        "智能度阶梯", "僵尸档案 - 属性", "战斗特性 - 加成",
-        "战斗特性 - 行为", "巨型僵尸 - 档案", "巨型僵尸 - 掉落"
+        "末日情报 - 目录",      // P1
+        "末日历法 - 进度",      // P2
+        "末日历法 - 血月",      // P3
+        "智能与AI - 能力",      // P4
+        "智能度阶梯",           // P5
+        "僵尸档案 - 属性",      // P6
+        "战斗特性 - 加成",      // P7
+        "战斗特性 - 夜晚狂暴",  // P8
+        "战斗特性 - 行为",      // P9
+        "巨型僵尸 - 档案",      // P10
+        "巨型僵尸 - 条件",      // P11
+        "巨型僵尸 - 掉落"       // P12
     };
     private static final int[] PAGE_COLORS = {
-        COLOR_GOLD, COLOR_GOLD, COLOR_ACCENT,
-        COLOR_ACCENT, COLOR_ZOMBIE, COLOR_BLUE,
-        COLOR_INK_HI, COLOR_GIANT, COLOR_GOLD
+        COLOR_GOLD, COLOR_GOLD, COLOR_BLOOD_MOON,
+        COLOR_ACCENT, COLOR_ACCENT, COLOR_ZOMBIE,
+        COLOR_BLUE, COLOR_GREEN, COLOR_INK_HI,
+        COLOR_GIANT, COLOR_GOLD, COLOR_GOLD
     };
 
     private int panelX, panelY;
@@ -126,14 +136,17 @@ public class ApocalypseBookScreen extends Screen {
         this.drawTitle(ctx, tr, x, y, w, PAGE_TITLES[page], PAGE_COLORS[page]);
         int bodyY = y + 16;
         if (page == 0) this.renderCoverPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 1) this.renderCalendarPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 2) this.renderIntelligenceAbilityPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 3) this.renderIntelligenceTierPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 4) this.renderZombieStatsPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 5) this.renderCombatBuffPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 6) this.renderCombatBehaviorPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 7) this.renderGiantStatsPage(ctx, tr, world, x, bodyY, w);
-        else if (page == 8) this.renderGiantDropsPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 1) this.renderCalendarProgressPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 2) this.renderCalendarBloodMoonPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 3) this.renderIntelligenceAbilityPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 4) this.renderIntelligenceTierPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 5) this.renderZombieStatsPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 6) this.renderCombatBuffPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 7) this.renderCombatNightRagePage(ctx, tr, world, x, bodyY, w);
+        else if (page == 8) this.renderCombatBehaviorPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 9) this.renderGiantStatsPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 10) this.renderGiantConditionPage(ctx, tr, world, x, bodyY, w);
+        else if (page == 11) this.renderGiantDropsPage(ctx, tr, world, x, bodyY, w);
     }
 
     private void drawTitle(DrawContext ctx, TextRenderer tr, int x, int y, int w,
@@ -193,30 +206,21 @@ public class ApocalypseBookScreen extends Screen {
 
     private void renderCoverPage(DrawContext ctx, TextRenderer tr, World world,
                                  int x, int y, int w) {
-        int currentDay = StageSystem.getCurrentStage(world);
-        boolean isBloodMoon = StageSystem.isBloodMoon(world);
-        int intelLevel = StageSystem.getIntelligenceLevel(world);
         int cy = y;
-        this.drawSectionTitle(ctx, tr, x, cy, w, "当前状态", COLOR_GOLD);
-        this.drawRow(ctx, tr, x, cy += 13, w, "天数",
-                currentDay + " / " + ModConfig.TOTAL_DAYS, COLOR_INK_HI);
-        String bmText = isBloodMoon ? "进行中"
-                : "~" + StageSystem.getDaysToNextBloodMoon(world) + "天后";
-        this.drawRow(ctx, tr, x, cy += ROW_H, w, "血月", bmText,
-                isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK);
-        String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
-        this.drawRow(ctx, tr, x, cy += ROW_H, w, "智能度",
-                "Lv" + intelLevel + " " + intelNames[intelLevel],
-                intelLevel >= 4 ? COLOR_DANGER : COLOR_INK_HI);
-        this.drawRow(ctx, tr, x, cy += ROW_H, w, "阶段",
-                this.getStageTip(currentDay), COLOR_INK_HI);
-        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "目录索引", COLOR_ACCENT);
+        this.drawSectionTitle(ctx, tr, x, cy, w, "惊变100天 生存手册", COLOR_GOLD);
+        cy += 13;
+        ctx.drawText(tr, Text.literal("记录世界末日进程情报"), x, cy, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("包含历法/智能/AI/属性/战斗"), x, cy, COLOR_INK_DIM, false); cy += ROW_H + 4;
+
+        this.drawSectionTitle(ctx, tr, x, cy, w, "目录索引", COLOR_ACCENT);
         cy += 13;
         String[][] toc = {
-            {"P2", "末日历法"}, {"P3", "智能与AI - 能力"},
-            {"P4", "智能度阶梯"}, {"P5", "僵尸档案 - 属性"},
-            {"P6", "战斗特性 - 加成"}, {"P7", "战斗特性 - 行为"},
-            {"P8", "巨型僵尸 - 档案"}, {"P9", "巨型僵尸 - 掉落"}
+            {"P2", "末日历法 - 进度"}, {"P3", "末日历法 - 血月"},
+            {"P4", "智能与AI - 能力"}, {"P5", "智能度阶梯"},
+            {"P6", "僵尸档案 - 属性"}, {"P7", "战斗特性 - 加成"},
+            {"P8", "战斗特性 - 夜晚狂暴"}, {"P9", "战斗特性 - 行为"},
+            {"P10", "巨型僵尸 - 档案"}, {"P11", "巨型僵尸 - 条件"},
+            {"P12", "巨型僵尸 - 掉落"}
         };
         for (String[] e : toc) {
             ctx.drawText(tr, Text.literal(e[0] + "    " + e[1]), x, cy, COLOR_INK, false);
@@ -224,17 +228,32 @@ public class ApocalypseBookScreen extends Screen {
         }
     }
 
-    private void renderCalendarPage(DrawContext ctx, TextRenderer tr, World world,
-                                    int x, int y, int w) {
+    private void renderCalendarProgressPage(DrawContext ctx, TextRenderer tr, World world,
+                                            int x, int y, int w) {
         int currentDay = StageSystem.getCurrentStage(world);
         double progress = StageSystem.getStageProgress(world);
         boolean isBloodMoon = StageSystem.isBloodMoon(world);
+        int intelLevel = StageSystem.getIntelligenceLevel(world);
         int cy = y;
-        this.drawSectionTitle(ctx, tr, x, cy, w, "末日历法", COLOR_GOLD);
-        this.drawRow(ctx, tr, x, cy += 13, w, "当前天数",
+        this.drawSectionTitle(ctx, tr, x, cy, w, "当前状态", COLOR_GOLD);
+        this.drawRow(ctx, tr, x, cy += 13, w, "天数",
                 currentDay + " / " + ModConfig.TOTAL_DAYS, COLOR_INK_HI);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "阶段",
                 this.getStageTip(currentDay), COLOR_INK_HI);
+        String[] intelNames = {"迟钝", "普通", "机敏", "狡猾", "凶残", "嗜血"};
+        this.drawRow(ctx, tr, x, cy += ROW_H, w, "智能度",
+                "Lv" + intelLevel + " " + intelNames[intelLevel],
+                intelLevel >= 4 ? COLOR_DANGER : COLOR_INK_HI);
+        String bmText = isBloodMoon ? "进行中"
+                : "~" + StageSystem.getDaysToNextBloodMoon(world) + "天后";
+        this.drawRow(ctx, tr, x, cy += ROW_H, w, "血月", bmText,
+                isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK);
+
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "末日进度", COLOR_GOLD);
+        this.drawRow(ctx, tr, x, cy += 13, w, "当前天数",
+                currentDay + " / " + ModConfig.TOTAL_DAYS, COLOR_INK_HI);
+        this.drawRow(ctx, tr, x, cy += ROW_H, w, "总天数",
+                String.valueOf(ModConfig.TOTAL_DAYS), COLOR_INK);
 
         int barX = x, barW = w;
         ctx.fill(barX, cy += 13, barX + barW, cy + 2, COLOR_INK_DIM);
@@ -244,15 +263,34 @@ public class ApocalypseBookScreen extends Screen {
         }
         ctx.drawCenteredTextWithShadow(tr, Text.literal((int) (progress * 100) + "%"),
                 x + w / 2, cy + 3, COLOR_INK_DIM);
+        cy += 10;
+        ctx.drawText(tr, Text.literal("阶段: " + this.getStageTip(currentDay)),
+                x, cy, COLOR_INK_DIM, false);
+    }
 
-        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "血月周期", COLOR_BLOOD_MOON);
+    private void renderCalendarBloodMoonPage(DrawContext ctx, TextRenderer tr, World world,
+                                             int x, int y, int w) {
+        int currentDay = StageSystem.getCurrentStage(world);
+        boolean isBloodMoon = StageSystem.isBloodMoon(world);
+        int cy = y;
+        this.drawSectionTitle(ctx, tr, x, cy, w, "血月周期", COLOR_BLOOD_MOON);
         int daysToBM = StageSystem.getDaysToNextBloodMoon(world);
         String bmText = isBloodMoon ? "今日血月" : "~" + daysToBM + "天后";
         this.drawRow(ctx, tr, x, cy += 13, w, "下次血月", bmText,
                 isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK);
+        this.drawRow(ctx, tr, x, cy += ROW_H, w, "当前状态",
+                isBloodMoon ? "进行中" : "未激活",
+                isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK_DIM);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "刷新倍率",
                 isBloodMoon ? "x2.0" : "x1.0",
                 isBloodMoon ? COLOR_BLOOD_MOON : COLOR_INK_DIM);
+
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "血月效果", COLOR_DANGER);
+        cy += 13;
+        ctx.drawText(tr, Text.literal("* 僵尸刷新翻倍"), x, cy, COLOR_BLOOD_MOON, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 僵尸速度 +30%"), x, cy, COLOR_BLOOD_MOON, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 僵尸攻击 +20%"), x, cy, COLOR_BLOOD_MOON, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 巨型僵尸概率提升"), x, cy, COLOR_GIANT, false); cy += ROW_H;
 
         this.drawSectionTitle(ctx, tr, x, cy += 13, w, "生存提示", COLOR_BLUE);
         cy += 13;
@@ -290,10 +328,8 @@ public class ApocalypseBookScreen extends Screen {
                 reinChance > 0 ? COLOR_DANGER : COLOR_INK_DIM);
 
         this.drawSectionTitle(ctx, tr, x, cy += 13, w, "AI行为说明", COLOR_GOLD);
-        cy += 13;
-        ctx.drawText(tr, Text.literal("* 第20天后开始拆搭方块"), x, cy, COLOR_INK, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 优先破坏门窗玻璃"), x, cy, COLOR_INK, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 朝玩家方向搭楼梯追击"), x, cy, COLOR_INK, false);
+        ctx.drawText(tr, Text.literal("* 第20天后开始拆搭方块"), x, cy += 13, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 优先破坏门窗玻璃"), x, cy, COLOR_INK, false);
     }
 
     private void renderIntelligenceTierPage(DrawContext ctx, TextRenderer tr, World world,
@@ -375,13 +411,33 @@ public class ApocalypseBookScreen extends Screen {
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "速度倍率", "+30%", COLOR_BLOOD_MOON);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "刷新倍率", "x2.0", COLOR_BLOOD_MOON);
 
-        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "夜晚加成详情", COLOR_GREEN);
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "血月应对", COLOR_DANGER);
+        ctx.drawText(tr, Text.literal("* 加固门窗死守"), x, cy += 13, COLOR_DANGER, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 准备充足武器药水"), x, cy, COLOR_DANGER, false);
+    }
+
+    private void renderCombatNightRagePage(DrawContext ctx, TextRenderer tr, World world,
+                                           int x, int y, int w) {
+        boolean isNight = !world.isDay();
+        int cy = y;
+        this.drawSectionTitle(ctx, tr, x, cy, w, "夜晚加成详情", COLOR_GREEN);
         this.drawRow(ctx, tr, x, cy += 13, w, "速度倍率", "+15%", COLOR_GREEN);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "生成密度", "提高", COLOR_GREEN);
+        this.drawRow(ctx, tr, x, cy += ROW_H, w, "当前状态",
+                isNight ? "夜晚已激活" : "白天未激活",
+                isNight ? COLOR_GREEN : COLOR_INK_DIM);
 
         this.drawSectionTitle(ctx, tr, x, cy += 13, w, "狂暴机制", COLOR_DANGER);
-        ctx.drawText(tr, Text.literal("* 血量<30%时触发"), x, cy += 13, COLOR_INK, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 速度额外+50%"), x, cy, COLOR_DANGER, false);
+        cy += 13;
+        ctx.drawText(tr, Text.literal("* 血量低于30%时触发"), x, cy, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 速度额外 +50%"), x, cy, COLOR_DANGER, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 无视冷却加速突破"), x, cy, COLOR_DANGER, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 高智能度更易触发"), x, cy, COLOR_BLOOD_MOON, false); cy += ROW_H;
+
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "狂暴应对", COLOR_GOLD);
+        ctx.drawText(tr, Text.literal("* 保持满血避免触发"), x, cy += 13, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 远程武器优先击杀"), x, cy, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 利用地形卡位"), x, cy, COLOR_INK, false);
     }
 
     private void renderCombatBehaviorPage(DrawContext ctx, TextRenderer tr, World world,
@@ -395,9 +451,7 @@ public class ApocalypseBookScreen extends Screen {
             "* 优先破坏门窗玻璃",
             "* 卡住时加速突破",
             "* 朝玩家方向搭楼梯",
-            "* 空中搭天桥追击",
-            "* 玩家在上方时塔式堆叠",
-            "* 玩家在下方时破坏头顶"
+            "* 空中搭天桥追击"
         };
         for (String b : behaviors) {
             ctx.drawText(tr, Text.literal(b), x, cy, COLOR_INK, false);
@@ -422,7 +476,7 @@ public class ApocalypseBookScreen extends Screen {
         int followRange = StageSystem.getFollowRange(world);
         double atkMult = StageSystem.getAttackMultiplier(world);
         int cy = y;
-        this.drawSectionTitle(ctx, tr, x, cy, w, "巨型属性 (2倍大小 - 第40天起)", COLOR_GIANT);
+        this.drawSectionTitle(ctx, tr, x, cy, w, "巨型属性 (2倍大小)", COLOR_GIANT);
         this.drawRowExtra(ctx, tr, x, cy += 13, w, "血量",
                 String.format("%.0f", health), String.format("(x%.1f)", health / 400.0), COLOR_GIANT);
         this.drawRowExtra(ctx, tr, x, cy += ROW_H, w, "攻击",
@@ -440,11 +494,23 @@ public class ApocalypseBookScreen extends Screen {
             ctx.drawText(tr, Text.literal(a), x, cy, COLOR_GIANT, false);
             cy += ROW_H;
         }
+    }
 
-        this.drawSectionTitle(ctx, tr, x, cy += 4, w, "出现条件", COLOR_GOLD);
+    private void renderGiantConditionPage(DrawContext ctx, TextRenderer tr, World world,
+                                          int x, int y, int w) {
+        int cy = y;
+        this.drawSectionTitle(ctx, tr, x, cy, w, "出现条件", COLOR_GOLD);
         this.drawRow(ctx, tr, x, cy += 13, w, "起始天数", "第40天", COLOR_INK_HI);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "血月加成", "概率+属性提升", COLOR_BLOOD_MOON);
         this.drawRow(ctx, tr, x, cy += ROW_H, w, "威胁等级", "极高", COLOR_DANGER);
+
+        this.drawSectionTitle(ctx, tr, x, cy += 13, w, "应对建议", COLOR_DANGER);
+        cy += 13;
+        ctx.drawText(tr, Text.literal("* 保持距离用弓箭攻击"), x, cy, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 利用地形卡位击杀"), x, cy, COLOR_INK, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 准备附魔钻石装备"), x, cy, COLOR_DANGER, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 血月时尽量避免交战"), x, cy, COLOR_BLOOD_MOON, false); cy += ROW_H;
+        ctx.drawText(tr, Text.literal("* 多人协作更易击杀"), x, cy, COLOR_INK, false);
     }
 
     private void renderGiantDropsPage(DrawContext ctx, TextRenderer tr, World world,
@@ -461,13 +527,7 @@ public class ApocalypseBookScreen extends Screen {
         this.drawSectionTitle(ctx, tr, x, cy += 4, w, "掉落说明", COLOR_BLUE);
         ctx.drawText(tr, Text.literal("* 击杀后掉落物散落地面"), x, cy += 13, COLOR_INK, false); cy += ROW_H;
         ctx.drawText(tr, Text.literal("* 附魔金苹果概率较低"), x, cy, COLOR_GIANT, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 经验瓶可获大量经验"), x, cy, COLOR_GREEN, false); cy += ROW_H;
-
-        this.drawSectionTitle(ctx, tr, x, cy += 4, w, "应对建议", COLOR_DANGER);
-        ctx.drawText(tr, Text.literal("* 保持距离用弓箭攻击"), x, cy += 13, COLOR_INK, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 利用地形卡位击杀"), x, cy, COLOR_INK, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 准备附魔钻石装备"), x, cy, COLOR_DANGER, false); cy += ROW_H;
-        ctx.drawText(tr, Text.literal("* 血月时尽量避免交战"), x, cy, COLOR_BLOOD_MOON, false);
+        ctx.drawText(tr, Text.literal("* 经验瓶可获大量经验"), x, cy, COLOR_GREEN, false);
     }
 
     private boolean inBounds(int mx, int my, int x, int y, int w, int h) {
