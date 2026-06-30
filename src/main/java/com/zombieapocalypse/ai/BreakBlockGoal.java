@@ -243,7 +243,8 @@ public class BreakBlockGoal extends Goal {
                 if (this.mob instanceof IBlockCollector collector) {
                     collector.addCollectedBlock(state);
                 }
-                world.breakBlock(this.targetBlock, true, this.mob);
+                // false: 僵尸破坏方块不掉落任何物品, 避免破坏容器时爆出大量掉落物
+                world.breakBlock(this.targetBlock, false, this.mob);
             }
             this.targetBlock = null;
         }
