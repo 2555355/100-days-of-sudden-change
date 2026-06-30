@@ -11,7 +11,7 @@
     "homepage": "https://github.com/2555355/3",
     "sources": "https://github.com/2555355/3"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "icon": "assets/zombieapocalypse/icon.png",
   "environment": "*",
   "entrypoints": {
