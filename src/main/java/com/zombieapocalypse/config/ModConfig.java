@@ -17,6 +17,9 @@ public class ModConfig {
     /** 僵尸白天生成概率倍率 (相对于夜晚) */
     public static double ZOMBIE_DAYTIME_SPAWN_MULTIPLIER = 0.6;
 
+    /** 僵尸全局刷新倍率 (作用于刷新概率和数量, 0.5 = 在原有基础上再减半) */
+    public static double ZOMBIE_SPAWN_MULTIPLIER = 0.5;
+
     // ========== 僵尸属性 ==========
     /** 是否防白天燃烧 */
     public static boolean ZOMBIE_SUN_BURN_IMMUNE = true;

@@ -143,6 +143,7 @@ public class ZombieApocalypseMod implements ModInitializer {
         }
 
         double bloodMoonMult = isBloodMoon ? ModConfig.BLOOD_MOON_SPAWN_MULTIPLIER : 1.0;
+        double spawnMult = ModConfig.ZOMBIE_SPAWN_MULTIPLIER;
 
         for (var player : world.getPlayers()) {
             if (player.isCreative() || player.isSpectator()) continue;
@@ -151,12 +152,12 @@ public class ZombieApocalypseMod implements ModInitializer {
             int spawnCount;
             if (isDay) {
                 // 白天少刷：概率和数量大幅降低
-                spawnChance = (0.15 + stageProgress * 0.2) * bloodMoonMult;
-                spawnCount = (int) Math.max(1, (1 + stage / 25) * bloodMoonMult);
+                spawnChance = (0.15 + stageProgress * 0.2) * bloodMoonMult * spawnMult;
+                spawnCount = (int) Math.max(1, (1 + stage / 25) * bloodMoonMult * spawnMult);
             } else {
                 // 夜晚刷新：概率和数量随阶段增长，但已调低以避免过度拥挤
-                spawnChance = (0.4 + stageProgress * 0.2) * bloodMoonMult;
-                spawnCount = (int) ((2 + stage / 12) * bloodMoonMult);
+                spawnChance = (0.4 + stageProgress * 0.2) * bloodMoonMult * spawnMult;
+                spawnCount = (int) Math.max(1, (2 + stage / 12) * bloodMoonMult * spawnMult);
             }
 
             Random random = world.getRandom();
