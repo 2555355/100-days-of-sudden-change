@@ -2,17 +2,21 @@ package com.zombieapocalypse.config;
 
 import net.minecraft.world.World;
 
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
+import java.util.concurrent.ThreadLocal;
 
 /**
  * 阶段系统 - 基于世界天数计算僵尸增强阶段
  * 惊变100天：每天为一个阶段，僵尸属性随阶段线性增长
  *
  * 性能优化 (v3.0.0):
- *   - isBloodMoon 使用 ThreadLocalRandom 替代每次 new Random, 避免GC压力
- *   - 提供带缓存的 StageSnapshot, 一次计算多个属性供同tick批量使用
+ *   - isBloodMoon 使用 ThreadLocal<Random> 复用实例, 避免 new Random(seed) 的GC压力
  */
 public class StageSystem {
+
+    // 线程本地 Random 复用实例, 避免 isBloodMoon 每次调用 new Random 产生GC
+    // 注: ThreadLocalRandom.setSeed 会抛 UnsupportedOperationException, 故用 java.util.Random
+    private static final ThreadLocal<Random> SEEDED_RNG = ThreadLocal.withInitial(Random::new);
 
     /**
      * 获取当前阶段 (1-100)
@@ -122,15 +126,15 @@ public class StageSystem {
      * 每天按概率随机决定是否为血月, 平均每 BLOOD_MOON_INTERVAL 天一次。
      * 使用确定性哈希(世界种子+天数)保证服务端/客户端/所有玩家看到同一结果。
      *
-     * 性能优化: 使用 ThreadLocalRandom 替代每次 new Random(seed),
-     *           通过 setSeed 复用线程本地 Random 实例, 避免GC压力。
+     * 性能优化: 复用 ThreadLocal<Random> 实例并通过 setSeed 重置,
+     *           避免每次调用 new Random(seed) 产生GC压力。
+     *           (ThreadLocalRandom.setSeed 不支持, 故用 java.util.Random)
      */
     public static boolean isBloodMoon(World world) {
         int day = getCurrentDay(world);
         if (day <= 0) return false;
         long seed = getBloodMoonSeed(world, day);
-        // 复用 ThreadLocalRandom, 避免每次创建新对象
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        Random rng = SEEDED_RNG.get();
         rng.setSeed(seed);
         return rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL);
     }
@@ -142,7 +146,7 @@ public class StageSystem {
     public static int getDaysToNextBloodMoon(World world) {
         if (isBloodMoon(world)) return 0;
         int currentDay = getCurrentDay(world);
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        Random rng = SEEDED_RNG.get();
         for (int i = 1; i <= ModConfig.BLOOD_MOON_INTERVAL; i++) {
             int futureDay = currentDay + i;
             long seed = getBloodMoonSeed(world, futureDay);
