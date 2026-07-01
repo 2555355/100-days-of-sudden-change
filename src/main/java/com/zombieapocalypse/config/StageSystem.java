@@ -3,7 +3,6 @@ package com.zombieapocalypse.config;
 import net.minecraft.world.World;
 
 import java.util.Random;
-import java.util.concurrent.ThreadLocal;
 
 /**
  * 阶段系统 - 基于世界天数计算僵尸增强阶段
