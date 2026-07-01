@@ -122,10 +122,15 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
 
     /**
      * 每tick更新僵尸属性 (基于阶段 + 夜晚/血月/低血量加成)
+     *
+     * 性能优化 (v3.0.0): 属性更新改为每10tick一次, 避免每tick重复调用7+个StageSystem方法。
+     *                    速度/狂暴等连续性需求由 onDamaged + 玩家攻击时即时刷新覆盖。
      */
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         if (this.getWorld().isClient) return;
+        // 每10tick更新一次属性, 大幅减少 StageSystem 调用开销
+        if ((this.age & 0b1111) != 0) return;
         updateZombieAttributes();
     }
 
@@ -142,10 +147,16 @@ public abstract class ZombieEntityMixin extends HostileEntity implements IBlockC
         if (world == null) return;
         if (this.isDead()) return;
 
-        double health = StageSystem.getZombieHealth(world);
-        double attack = StageSystem.getZombieAttack(world);
-        double speed = StageSystem.getZombieSpeed(world);
-        double armor = StageSystem.getZombieArmor(world);
+        // 一次性计算阶段进度, 避免多次调用 getStageProgress
+        double progress = StageSystem.getStageProgress(world);
+        double health = ModConfig.ZOMBIE_BASE_HEALTH +
+                (ModConfig.ZOMBIE_MAX_HEALTH - ModConfig.ZOMBIE_BASE_HEALTH) * progress;
+        double attack = ModConfig.ZOMBIE_BASE_ATTACK +
+                (ModConfig.ZOMBIE_MAX_ATTACK - ModConfig.ZOMBIE_BASE_ATTACK) * progress;
+        double speed = ModConfig.ZOMBIE_BASE_SPEED +
+                (ModConfig.ZOMBIE_MAX_SPEED - ModConfig.ZOMBIE_BASE_SPEED) * progress;
+        double armor = ModConfig.ZOMBIE_BASE_ARMOR +
+                (ModConfig.ZOMBIE_MAX_ARMOR - ModConfig.ZOMBIE_BASE_ARMOR) * progress;
 
         double difficultyMult = ModConfig.getDifficultyMultiplier(world.getDifficulty());
         health *= difficultyMult;

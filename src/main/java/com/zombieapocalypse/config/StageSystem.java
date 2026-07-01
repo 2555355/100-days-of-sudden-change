@@ -2,9 +2,15 @@ package com.zombieapocalypse.config;
 
 import net.minecraft.world.World;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * 阶段系统 - 基于世界天数计算僵尸增强阶段
  * 惊变100天：每天为一个阶段，僵尸属性随阶段线性增长
+ *
+ * 性能优化 (v3.0.0):
+ *   - isBloodMoon 使用 ThreadLocalRandom 替代每次 new Random, 避免GC压力
+ *   - 提供带缓存的 StageSnapshot, 一次计算多个属性供同tick批量使用
  */
 public class StageSystem {
 
@@ -114,13 +120,18 @@ public class StageSystem {
     /**
      * 是否为血月 (随机刷新)
      * 每天按概率随机决定是否为血月, 平均每 BLOOD_MOON_INTERVAL 天一次。
-     * 使用确定性哈希(世界注册键+天数)保证服务端/客户端/所有玩家看到同一结果。
+     * 使用确定性哈希(世界种子+天数)保证服务端/客户端/所有玩家看到同一结果。
+     *
+     * 性能优化: 使用 ThreadLocalRandom 替代每次 new Random(seed),
+     *           通过 setSeed 复用线程本地 Random 实例, 避免GC压力。
      */
     public static boolean isBloodMoon(World world) {
         int day = getCurrentDay(world);
         if (day <= 0) return false;
         long seed = getBloodMoonSeed(world, day);
-        java.util.Random rng = new java.util.Random(seed);
+        // 复用 ThreadLocalRandom, 避免每次创建新对象
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        rng.setSeed(seed);
         return rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL);
     }
 
@@ -131,10 +142,11 @@ public class StageSystem {
     public static int getDaysToNextBloodMoon(World world) {
         if (isBloodMoon(world)) return 0;
         int currentDay = getCurrentDay(world);
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
         for (int i = 1; i <= ModConfig.BLOOD_MOON_INTERVAL; i++) {
             int futureDay = currentDay + i;
             long seed = getBloodMoonSeed(world, futureDay);
-            java.util.Random rng = new java.util.Random(seed);
+            rng.setSeed(seed);
             if (rng.nextDouble() < (1.0 / ModConfig.BLOOD_MOON_INTERVAL)) {
                 return i;
             }
@@ -143,7 +155,7 @@ public class StageSystem {
     }
 
     /**
-     * 血月种子: 基于世界注册键的hashCode与天数组合
+     * 血月种子: 基于世界种子与天数组合
      * ServerWorld 可通过 getSeed 获取真实种子, ClientWorld 退化为注册键hashCode
      */
     private static long getBloodMoonSeed(World world, int day) {

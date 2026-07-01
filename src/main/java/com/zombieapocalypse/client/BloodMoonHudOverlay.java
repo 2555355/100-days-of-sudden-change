@@ -37,6 +37,13 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
     private static boolean initialized = false;
     private static long announcementStartMs = 0L;
     private static boolean announcementActive = false;
+    // 缓存当前tick血月状态, onHudRender直接复用, 避免每帧重算
+    private static boolean cachedBloodMoon = false;
+
+    // 预创建静态Text对象, 避免每帧分配
+    private static final Text MAIN_TEXT = Text.literal("血月降临");
+    private static final Text SUB_TEXT = Text.literal("僵尸速度 +30%  攻击 +20%  刷新翻倍");
+    private static final Text PERSIST_TEXT = Text.literal("☠ 血月进行中 ☠");
 
     public static void register() {
         BloodMoonHudOverlay instance = new BloodMoonHudOverlay();
@@ -54,6 +61,7 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
 
         World world = client.world;
         boolean currentBloodMoon = StageSystem.isBloodMoon(world);
+        cachedBloodMoon = currentBloodMoon;
 
         // 首次初始化: 不触发提示, 仅记录当前状态
         if (!initialized) {
@@ -78,9 +86,8 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
         if (client.options.hudHidden) return;
 
         TextRenderer tr = client.textRenderer;
-        World world = client.world;
-        boolean isBloodMoon = StageSystem.isBloodMoon(world);
-        boolean isNight = !world.isDay();
+        boolean isBloodMoon = cachedBloodMoon;
+        boolean isNight = !client.world.isDay();
         int screenW = context.getScaledWindowWidth();
         int screenH = context.getScaledWindowHeight();
         int centerX = screenW / 2;
@@ -130,22 +137,20 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
         ctx.fill(cx - 130, cy - 38, cx + 130, cy + 38, maskColor);
 
         // 主标题: 血月降临 (2倍缩放)
-        String mainText = "血月降临";
         int mainColor = withAlpha(COLOR_BLOOD_RED, a);
-        int mainW = tr.getWidth(mainText) * 2;
+        int mainW = tr.getWidth(MAIN_TEXT) * 2;
         int mainX = cx - mainW / 2;
         int mainY = cy - 26;
 
         // 主标题阴影层(深红色)
-        drawScaledText(ctx, tr, mainText, mainX + 2, mainY + 2, withAlpha(COLOR_BLOOD_DARK, a), 2);
+        drawScaledText(ctx, tr, MAIN_TEXT, mainX + 2, mainY + 2, withAlpha(COLOR_BLOOD_DARK, a), 2);
         // 主标题本体
-        drawScaledText(ctx, tr, mainText, mainX, mainY, mainColor, 2);
+        drawScaledText(ctx, tr, MAIN_TEXT, mainX, mainY, mainColor, 2);
 
         // 副标题: 危险等级提升
-        String subText = "僵尸速度 +30%  攻击 +20%  刷新翻倍";
         int subColor = withAlpha(COLOR_PULSE_DIM, a);
-        int subW = tr.getWidth(subText);
-        ctx.drawTextWithShadow(tr, Text.literal(subText), cx - subW / 2, cy + 6, subColor);
+        int subW = tr.getWidth(SUB_TEXT);
+        ctx.drawTextWithShadow(tr, SUB_TEXT, cx - subW / 2, cy + 6, subColor);
 
         // 装饰横线
         int lineColor = withAlpha(COLOR_BLOOD_DARK, a);
@@ -161,9 +166,8 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
         float pulse = 0.7f + 0.3f * (float) Math.sin(t * 0.005);
         int a = (int) (pulse * 230) & 0xFF;
 
-        String text = "☠ 血月进行中 ☠";
         int color = withAlpha(COLOR_BLOOD_RED, a);
-        int w = tr.getWidth(text);
+        int w = tr.getWidth(PERSIST_TEXT);
 
         // 小型半透明背景
         int bgAlpha = (int) (pulse * 90) & 0xFF;
@@ -172,24 +176,24 @@ public class BloodMoonHudOverlay implements HudRenderCallback, ClientTickEvents.
         ctx.fill(cx - w / 2 - 6, cy - 3, cx + w / 2 + 6, cy - 2, color);
         ctx.fill(cx - w / 2 - 6, cy + 10, cx + w / 2 + 6, cy + 11, color);
 
-        ctx.drawTextWithShadow(tr, Text.literal(text), cx - w / 2, cy, color);
+        ctx.drawTextWithShadow(tr, PERSIST_TEXT, cx - w / 2, cy, color);
     }
 
     /**
      * 绘制缩放文字(整数倍放大, 用多次偏移绘制实现)
      * Minecraft 1.20.1 DrawContext 没有直接scale文字API, 用矩阵缩放
      */
-    private void drawScaledText(DrawContext ctx, TextRenderer tr, String text,
+    private void drawScaledText(DrawContext ctx, TextRenderer tr, Text text,
                                 int x, int y, int color, int scale) {
         if (scale <= 1) {
-            ctx.drawTextWithShadow(tr, Text.literal(text), x, y, color);
+            ctx.drawTextWithShadow(tr, text, x, y, color);
             return;
         }
         // 使用矩阵栈缩放
         ctx.getMatrices().push();
         ctx.getMatrices().translate(x, y, 0);
         ctx.getMatrices().scale(scale, scale, 1.0f);
-        ctx.drawTextWithShadow(tr, Text.literal(text), 0, 0, color);
+        ctx.drawTextWithShadow(tr, text, 0, 0, color);
         ctx.getMatrices().pop();
     }
 
